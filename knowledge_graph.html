@@ -1,0 +1,274 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        
+            <script src="lib/bindings/utils.js"></script>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/dist/vis-network.min.css" integrity="sha512-WgxfT5LWjfszlPHXRmBWHkV2eceiWTOBvrKCNbdgDYTHrT2AeLCGbF4sZlZw3UMN3WtL0tGUoIAKsu8mllg/XA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js" integrity="sha512-LnvoEWDFrqGHlHmDD2101OrLcbsfkrzoSpvtSQtxK3RMnRV0eOkhhBN2dXHKRrUU8p2DGRTk35n4O8nWSVe1mQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+            
+        
+<center>
+<h1></h1>
+</center>
+
+<!-- <link rel="stylesheet" href="../node_modules/vis/dist/vis.min.css" type="text/css" />
+<script type="text/javascript" src="../node_modules/vis/dist/vis.js"> </script>-->
+        <link
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6"
+          crossorigin="anonymous"
+        />
+        <script
+          src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js"
+          integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf"
+          crossorigin="anonymous"
+        ></script>
+
+
+        <center>
+          <h1></h1>
+        </center>
+        <style type="text/css">
+
+             #mynetwork {
+                 width: 100%;
+                 height: 750px;
+                 background-color: #222222;
+                 border: 1px solid lightgray;
+                 position: relative;
+                 float: left;
+             }
+
+             
+             #loadingBar {
+                 position:absolute;
+                 top:0px;
+                 left:0px;
+                 width: 100%;
+                 height: 750px;
+                 background-color:rgba(200,200,200,0.8);
+                 -webkit-transition: all 0.5s ease;
+                 -moz-transition: all 0.5s ease;
+                 -ms-transition: all 0.5s ease;
+                 -o-transition: all 0.5s ease;
+                 transition: all 0.5s ease;
+                 opacity:1;
+             }
+
+             #bar {
+                 position:absolute;
+                 top:0px;
+                 left:0px;
+                 width:20px;
+                 height:20px;
+                 margin:auto auto auto auto;
+                 border-radius:11px;
+                 border:2px solid rgba(30,30,30,0.05);
+                 background: rgb(0, 173, 246); /* Old browsers */
+                 box-shadow: 2px 0px 4px rgba(0,0,0,0.4);
+             }
+
+             #border {
+                 position:absolute;
+                 top:10px;
+                 left:10px;
+                 width:500px;
+                 height:23px;
+                 margin:auto auto auto auto;
+                 box-shadow: 0px 0px 4px rgba(0,0,0,0.2);
+                 border-radius:10px;
+             }
+
+             #text {
+                 position:absolute;
+                 top:8px;
+                 left:530px;
+                 width:30px;
+                 height:50px;
+                 margin:auto auto auto auto;
+                 font-size:22px;
+                 color: #000000;
+             }
+
+             div.outerBorder {
+                 position:relative;
+                 top:400px;
+                 width:600px;
+                 height:44px;
+                 margin:auto auto auto auto;
+                 border:8px solid rgba(0,0,0,0.1);
+                 background: rgb(252,252,252); /* Old browsers */
+                 background: -moz-linear-gradient(top,  rgba(252,252,252,1) 0%, rgba(237,237,237,1) 100%); /* FF3.6+ */
+                 background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,rgba(252,252,252,1)), color-stop(100%,rgba(237,237,237,1))); /* Chrome,Safari4+ */
+                 background: -webkit-linear-gradient(top,  rgba(252,252,252,1) 0%,rgba(237,237,237,1) 100%); /* Chrome10+,Safari5.1+ */
+                 background: -o-linear-gradient(top,  rgba(252,252,252,1) 0%,rgba(237,237,237,1) 100%); /* Opera 11.10+ */
+                 background: -ms-linear-gradient(top,  rgba(252,252,252,1) 0%,rgba(237,237,237,1) 100%); /* IE10+ */
+                 background: linear-gradient(to bottom,  rgba(252,252,252,1) 0%,rgba(237,237,237,1) 100%); /* W3C */
+                 filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#fcfcfc', endColorstr='#ededed',GradientType=0 ); /* IE6-9 */
+                 border-radius:72px;
+                 box-shadow: 0px 0px 10px rgba(0,0,0,0.2);
+             }
+             
+
+             
+             #config {
+                 float: left;
+                 width: 400px;
+                 height: 600px;
+             }
+             
+
+             
+        </style>
+    </head>
+
+
+    <body>
+        <div class="card" style="width: 100%">
+            
+            
+            <div id="mynetwork" class="card-body"></div>
+        </div>
+
+        
+            <div id="loadingBar">
+              <div class="outerBorder">
+                <div id="text">0%</div>
+                <div id="border">
+                  <div id="bar"></div>
+                </div>
+              </div>
+            </div>
+        
+        
+            <div id="config"></div>
+        
+
+        <script type="text/javascript">
+
+              // initialize global variables.
+              var edges;
+              var nodes;
+              var allNodes;
+              var allEdges;
+              var nodeColors;
+              var originalNodes;
+              var network;
+              var container;
+              var options, data;
+              var filter = {
+                  item : '',
+                  property : '',
+                  value : []
+              };
+
+              
+
+              
+
+              // This method is responsible for drawing the graph, returns the drawn network
+              function drawGraph() {
+                  var container = document.getElementById('mynetwork');
+
+                  
+
+                  // parsing and collecting nodes and edges from the python
+                  nodes = new vis.DataSet([{"font": {"color": "white"}, "group": "Industry", "id": "industry:semiconductor", "label": "\ubc18\ub3c4\uccb4", "shape": "dot", "title": "[Industry] \ubc18\ub3c4\uccb4\n\uba54\ubaa8\ub9ac\u00b7\uc2dc\uc2a4\ud15c \ubc18\ub3c4\uccb4 \uc0b0\uc5c5\uad70"}, {"font": {"color": "white"}, "group": "Industry", "id": "industry:battery", "label": "2\ucc28\uc804\uc9c0", "shape": "dot", "title": "[Industry] 2\ucc28\uc804\uc9c0\n\uc804\uae30\ucc28 \ubc30\ud130\ub9ac \ubc0f \uc5d0\ub108\uc9c0 \uc800\uc7a5"}, {"font": {"color": "white"}, "group": "Industry", "id": "industry:auto", "label": "\uc790\ub3d9\ucc28", "shape": "dot", "title": "[Industry] \uc790\ub3d9\ucc28\n\uc644\uc131\ucc28\u00b7\uc804\uae30\ucc28\u00b7\uc218\uc18c\ucc28 \uc0b0\uc5c5"}, {"font": {"color": "white"}, "group": "Industry", "id": "industry:finance", "label": "\uae08\uc735", "shape": "dot", "title": "[Industry] \uae08\uc735\n\uc740\ud589\u00b7\uc99d\uad8c\u00b7\ubcf4\ud5d8\u00b7\ud540\ud14c\ud06c"}, {"font": {"color": "white"}, "group": "Industry", "id": "industry:biohealth", "label": "\ubc14\uc774\uc624\ud5ec\uc2a4", "shape": "dot", "title": "[Industry] \ubc14\uc774\uc624\ud5ec\uc2a4\n\uc81c\uc57d\u00b7\uc758\ub8cc\uae30\uae30\u00b7\ubc14\uc774\uc624 \uc0b0\uc5c5"}, {"font": {"color": "white"}, "group": "Industry", "id": "industry:shipbuilding", "label": "\uc870\uc120", "shape": "dot", "title": "[Industry] \uc870\uc120\n\ub300\ud615 \uc120\ubc15 \ubc0f \ud574\uc591\ud50c\ub79c\ud2b8"}, {"font": {"color": "white"}, "group": "Industry", "id": "industry:steel_material", "label": "\ucca0\uac15/\uc18c\uc7ac", "shape": "dot", "title": "[Industry] \ucca0\uac15/\uc18c\uc7ac\n\ucca0\uac15\u00b7\ud654\ud559\u00b7\uc18c\ubd80\uc7a5 \uc0b0\uc5c5"}, {"font": {"color": "white"}, "group": "Industry", "id": "industry:it_platform", "label": "IT/\ud50c\ub7ab\ud3fc", "shape": "dot", "title": "[Industry] IT/\ud50c\ub7ab\ud3fc\n\uc778\ud130\ub137\u00b7\uac8c\uc784\u00b7\ud50c\ub7ab\ud3fc \uc11c\ube44\uc2a4"}, {"font": {"color": "white"}, "group": "Industry", "id": "industry:construction_realestate", "label": "\uac74\uc124/\ubd80\ub3d9\uc0b0", "shape": "dot", "title": "[Industry] \uac74\uc124/\ubd80\ub3d9\uc0b0\n\uac74\uc124\u00b7\ubd80\ub3d9\uc0b0 \uac1c\ubc1c"}, {"font": {"color": "white"}, "group": "Industry", "id": "industry:energy", "label": "\uc5d0\ub108\uc9c0", "shape": "dot", "title": "[Industry] \uc5d0\ub108\uc9c0\n\uc815\uc720\u00b7\uac00\uc2a4\u00b7\uc2e0\uc7ac\uc0dd\uc5d0\ub108\uc9c0"}, {"font": {"color": "white"}, "group": "Company", "id": "company:samsung_electronics", "label": "\uc0bc\uc131\uc804\uc790", "shape": "dot", "title": "[Company] \uc0bc\uc131\uc804\uc790\n\ubc18\ub3c4\uccb4\u00b7\uc2a4\ub9c8\ud2b8\ud3f0\u00b7\uac00\uc804 \uae00\ub85c\ubc8c 1\uc704."}, {"font": {"color": "white"}, "group": "Company", "id": "company:sk_hynix", "label": "SK\ud558\uc774\ub2c9\uc2a4", "shape": "dot", "title": "[Company] SK\ud558\uc774\ub2c9\uc2a4\nD\ub7a8\u00b7\ub0b8\ub4dc \uc138\uacc4 2\uc704. HBM \uc218\uc694 \uc218\ud61c."}, {"font": {"color": "white"}, "group": "Company", "id": "company:hyundai_motor", "label": "\ud604\ub300\uc790\ub3d9\ucc28", "shape": "dot", "title": "[Company] \ud604\ub300\uc790\ub3d9\ucc28\n\uad6d\ub0b4 \uc644\uc131\ucc28 1\uc704. \uc804\uae30\ucc28\u00b7\uc218\uc18c\ucc28 \uae00\ub85c\ubc8c \uacf5\ub7b5."}, {"font": {"color": "white"}, "group": "Company", "id": "company:kia", "label": "\uae30\uc544", "shape": "dot", "title": "[Company] \uae30\uc544\n\ud604\ub300\ucc28 \uacc4\uc5f4 \uc644\uc131\ucc28. SUV\u00b7EV \uae00\ub85c\ubc8c \uc131\uc7a5."}, {"font": {"color": "white"}, "group": "Company", "id": "company:lg_energy_solution", "label": "LG\uc5d0\ub108\uc9c0\uc194\ub8e8\uc158", "shape": "dot", "title": "[Company] LG\uc5d0\ub108\uc9c0\uc194\ub8e8\uc158\n\uc804\uae30\ucc28 \ubc30\ud130\ub9ac \uae00\ub85c\ubc8c 2\uc704."}, {"font": {"color": "white"}, "group": "Company", "id": "company:posco_holdings", "label": "POSCO\ud640\ub529\uc2a4", "shape": "dot", "title": "[Company] POSCO\ud640\ub529\uc2a4\n\ucca0\uac15 \uc138\uacc4 5\uc704\uad8c. \uc774\ucc28\uc804\uc9c0 \uc18c\uc7ac \ud655\ub300."}, {"font": {"color": "white"}, "group": "Company", "id": "company:kakao", "label": "\uce74\uce74\uc624", "shape": "dot", "title": "[Company] \uce74\uce74\uc624\n\uad6d\ub0b4 1\uc704 \uba54\uc2e0\uc800 \ud50c\ub7ab\ud3fc."}, {"font": {"color": "white"}, "group": "Company", "id": "company:naver", "label": "\ub124\uc774\ubc84", "shape": "dot", "title": "[Company] \ub124\uc774\ubc84\n\uad6d\ub0b4 \uac80\uc0c9 1\uc704. \ub77c\uc778\u00b7\uc6f9\ud230 \uae00\ub85c\ubc8c \ud655\uc7a5."}, {"font": {"color": "white"}, "group": "Company", "id": "company:celltrion", "label": "\uc140\ud2b8\ub9ac\uc628", "shape": "dot", "title": "[Company] \uc140\ud2b8\ub9ac\uc628\n\ubc14\uc774\uc624\uc2dc\ubc00\ub7ec \uae00\ub85c\ubc8c \uc120\ub3c4\uae30\uc5c5."}, {"font": {"color": "white"}, "group": "Company", "id": "company:hanwha_aerospace", "label": "\ud55c\ud654\uc5d0\uc5b4\ub85c\uc2a4\ud398\uc774\uc2a4", "shape": "dot", "title": "[Company] \ud55c\ud654\uc5d0\uc5b4\ub85c\uc2a4\ud398\uc774\uc2a4\n\ubc29\uc0b0\u00b7\uc6b0\uc8fc\u00b7\uc5d4\uc9c4. \uc218\ucd9c \uae09\uc99d."}, {"font": {"color": "white"}, "group": "Company", "id": "company:kb_bank", "label": "KB\uad6d\ubbfc\uc740\ud589", "shape": "dot", "title": "[Company] KB\uad6d\ubbfc\uc740\ud589\n\uad6d\ub0b4 \uc790\uc0b0 1\uc704 \uc2dc\uc911\uc740\ud589."}, {"font": {"color": "white"}, "group": "Company", "id": "company:shinhan_bank", "label": "\uc2e0\ud55c\uc740\ud589", "shape": "dot", "title": "[Company] \uc2e0\ud55c\uc740\ud589\n\uc2e0\ud55c\uae08\uc735\uadf8\ub8f9 \ud575\uc2ec. \uae00\ub85c\ubc8c \uae08\uc735 \ud655\uc7a5."}, {"font": {"color": "white"}, "group": "Company", "id": "company:kakaobank", "label": "\uce74\uce74\uc624\ubc45\ud06c", "shape": "dot", "title": "[Company] \uce74\uce74\uc624\ubc45\ud06c\n\uad6d\ub0b4 1\uc704 \uc778\ud130\ub137\uc740\ud589. 2\ucc9c\ub9cc \uace0\uac1d."}, {"font": {"color": "white"}, "group": "Company", "id": "company:toss", "label": "\ud1a0\uc2a4", "shape": "dot", "title": "[Company] \ud1a0\uc2a4\n\ud540\ud14c\ud06c \uc720\ub2c8\ucf58. \uac04\ud3b8\uacb0\uc81c\u00b7\ub300\ucd9c\u00b7\ubcf4\ud5d8."}, {"font": {"color": "white"}, "group": "Company", "id": "company:krafton", "label": "\ud06c\ub798\ud504\ud1a4", "shape": "dot", "title": "[Company] \ud06c\ub798\ud504\ud1a4\n\ubc30\ud2c0\uadf8\ub77c\uc6b4\ub4dc \uac1c\ubc1c\uc0ac. \uac8c\uc784 \uc218\ucd9c \uc8fc\uc5ed."}, {"font": {"color": "white"}, "group": "Company", "id": "company:hd_hyundai_heavy", "label": "HD\ud604\ub300\uc911\uacf5\uc5c5", "shape": "dot", "title": "[Company] HD\ud604\ub300\uc911\uacf5\uc5c5\n\uc870\uc120 \uc138\uacc4 1\uc704\uad8c. LNG\uc120 \ub3c5\uc810 \uacbd\uc7c1\ub825."}, {"font": {"color": "white"}, "group": "Person", "id": "person:lee_jaeyong", "label": "\uc774\uc7ac\uc6a9", "shape": "dot", "title": "[Person] \uc774\uc7ac\uc6a9\n\uc0bc\uc131\uc804\uc790 \ud68c\uc7a5."}, {"font": {"color": "white"}, "group": "Person", "id": "person:choi_taewon", "label": "\ucd5c\ud0dc\uc6d0", "shape": "dot", "title": "[Person] \ucd5c\ud0dc\uc6d0\nSK\uadf8\ub8f9 \ud68c\uc7a5."}, {"font": {"color": "white"}, "group": "Person", "id": "person:chung_euisun", "label": "\uc815\uc758\uc120", "shape": "dot", "title": "[Person] \uc815\uc758\uc120\n\ud604\ub300\ucc28\uadf8\ub8f9 \ud68c\uc7a5."}, {"font": {"color": "white"}, "group": "Person", "id": "person:lee_haejin", "label": "\uc774\ud574\uc9c4", "shape": "dot", "title": "[Person] \uc774\ud574\uc9c4\n\ub124\uc774\ubc84 \ucc3d\uc5c5\uc790."}, {"font": {"color": "white"}, "group": "Person", "id": "person:rhee_changyong", "label": "\uc774\ucc3d\uc6a9", "shape": "dot", "title": "[Person] \uc774\ucc3d\uc6a9\n\ud55c\uad6d\uc740\ud589 \ucd1d\uc7ac."}, {"font": {"color": "white"}, "group": "Person", "id": "person:choi_sangmok", "label": "\ucd5c\uc0c1\ubaa9", "shape": "dot", "title": "[Person] \ucd5c\uc0c1\ubaa9\n\uacbd\uc81c\ubd80\ucd1d\ub9ac."}, {"font": {"color": "white"}, "group": "Person", "id": "person:kim_byunghwan", "label": "\uae40\ubcd1\ud658", "shape": "dot", "title": "[Person] \uae40\ubcd1\ud658\n\uae08\uc735\uc704\uc6d0\uc7a5."}, {"font": {"color": "white"}, "group": "Organization", "id": "organization:bank_of_korea", "label": "\ud55c\uad6d\uc740\ud589", "shape": "dot", "title": "[Organization] \ud55c\uad6d\uc740\ud589\n\ud1b5\ud654\uc815\ucc45 \uc218\ub9bd\u00b7\uae30\uc900\uae08\ub9ac \uacb0\uc815 \uae30\uad00."}, {"font": {"color": "white"}, "group": "Organization", "id": "organization:moef", "label": "\uae30\ud68d\uc7ac\uc815\ubd80", "shape": "dot", "title": "[Organization] \uae30\ud68d\uc7ac\uc815\ubd80\n\uad6d\uac00 \uc7ac\uc815\u00b7\uc138\uc81c\u00b7\uacbd\uc81c\uc815\ucc45 \ucd1d\uad04 \ubd80\ucc98."}, {"font": {"color": "white"}, "group": "Organization", "id": "organization:fsc", "label": "\uae08\uc735\uc704\uc6d0\ud68c", "shape": "dot", "title": "[Organization] \uae08\uc735\uc704\uc6d0\ud68c\n\uae08\uc735\uc815\ucc45 \uc218\ub9bd\u00b7\uae08\uc735\ud68c\uc0ac \uac10\ub3c5."}, {"font": {"color": "white"}, "group": "Organization", "id": "organization:ftc", "label": "\uacf5\uc815\uac70\ub798\uc704\uc6d0\ud68c", "shape": "dot", "title": "[Organization] \uacf5\uc815\uac70\ub798\uc704\uc6d0\ud68c\n\ub3c5\uc810\u00b7\ubd88\uacf5\uc815\uac70\ub798 \uaddc\uc81c \uae30\uad00."}, {"font": {"color": "white"}, "group": "Organization", "id": "organization:krx", "label": "\ud55c\uad6d\uac70\ub798\uc18c", "shape": "dot", "title": "[Organization] \ud55c\uad6d\uac70\ub798\uc18c\n\ucf54\uc2a4\ud53c\u00b7\ucf54\uc2a4\ub2e5 \uc6b4\uc601 \uac70\ub798\uc18c."}, {"font": {"color": "white"}, "group": "Organization", "id": "organization:fss", "label": "\uae08\uc735\uac10\ub3c5\uc6d0", "shape": "dot", "title": "[Organization] \uae08\uc735\uac10\ub3c5\uc6d0\n\uae08\uc735\uae30\uad00 \uac80\uc0ac\u00b7\uac10\ub3c5 \uae30\uad00."}, {"font": {"color": "white"}, "group": "Organization", "id": "organization:kdi", "label": "KDI", "shape": "dot", "title": "[Organization] KDI\n\uad6d\ucc45 \uacbd\uc81c\uc5f0\uad6c\uae30\uad00."}, {"font": {"color": "white"}, "group": "Organization", "id": "organization:federal_reserve", "label": "\ubbf8\uad6d \uc5f0\uc900", "shape": "dot", "title": "[Organization] \ubbf8\uad6d \uc5f0\uc900\n\ubbf8\uad6d \uc911\uc559\uc740\ud589 \uc2dc\uc2a4\ud15c."}, {"font": {"color": "white"}, "group": "Organization", "id": "organization:imf", "label": "IMF", "shape": "dot", "title": "[Organization] IMF\n\uad6d\uc81c\ud1b5\ud654\uae30\uae08."}, {"font": {"color": "white"}, "group": "Organization", "id": "organization:kcci", "label": "\ub300\ud55c\uc0c1\uacf5\ud68c\uc758\uc18c", "shape": "dot", "title": "[Organization] \ub300\ud55c\uc0c1\uacf5\ud68c\uc758\uc18c\n\uad6d\ub0b4 \ucd5c\ub300 \uacbd\uc81c\ub2e8\uccb4."}, {"font": {"color": "white"}, "group": "Organization", "id": "organization:fki", "label": "\uc804\uad6d\uacbd\uc81c\uc778\uc5f0\ud569\ud68c", "shape": "dot", "title": "[Organization] \uc804\uad6d\uacbd\uc81c\uc778\uc5f0\ud569\ud68c\n\ub300\uae30\uc5c5 \uc911\uc2ec \uacbd\uc81c\ub2e8\uccb4."}, {"font": {"color": "white"}, "group": "Asset", "id": "asset:kospi", "label": "\ucf54\uc2a4\ud53c", "shape": "dot", "title": "[Asset] \ucf54\uc2a4\ud53c\n\ud55c\uad6d \ub300\ud45c \uc8fc\uac00\uc9c0\uc218."}, {"font": {"color": "white"}, "group": "Asset", "id": "asset:usdkrw", "label": "\uc6d0\ub2ec\ub7ec \ud658\uc728", "shape": "dot", "title": "[Asset] \uc6d0\ub2ec\ub7ec \ud658\uc728\nUSD/KRW \ud658\uc728."}, {"font": {"color": "white"}, "group": "Asset", "id": "asset:treasury_3y", "label": "\uad6d\ucc44 3\ub144\ubb3c \uae08\ub9ac", "shape": "dot", "title": "[Asset] \uad6d\ucc44 3\ub144\ubb3c \uae08\ub9ac\n\ub2e8\uae30 \uae08\ub9ac \uc9c0\ud45c."}, {"font": {"color": "white"}, "group": "Asset", "id": "asset:cofix", "label": "COFIX", "shape": "dot", "title": "[Asset] COFIX\n\uc8fc\ud0dd\ub2f4\ubcf4\ub300\ucd9c \uae30\uc900\uae08\ub9ac."}, {"font": {"color": "white"}, "group": "Asset", "id": "asset:dubai_oil", "label": "\ub450\ubc14\uc774\uc720", "shape": "dot", "title": "[Asset] \ub450\ubc14\uc774\uc720\n\ud55c\uad6d \uc6d0\uc720 \uc218\uc785 \uae30\uc900\uac00."}, {"font": {"color": "white"}, "group": "Asset", "id": "asset:dram_spot_price", "label": "D\ub7a8 \ud604\ubb3c\uac00", "shape": "dot", "title": "[Asset] D\ub7a8 \ud604\ubb3c\uac00\n\ubc18\ub3c4\uccb4 \uacbd\uae30 \uc120\ud589\uc9c0\ud45c."}, {"font": {"color": "white"}, "group": "Asset", "id": "asset:lithium_price", "label": "\ub9ac\ud2ac \uac00\uaca9", "shape": "dot", "title": "[Asset] \ub9ac\ud2ac \uac00\uaca9\n\ubc30\ud130\ub9ac \ud575\uc2ec \uc6d0\uc18c\uc7ac \uac00\uaca9 \uc9c0\ud45c."}, {"font": {"color": "white"}, "group": "Source", "id": "src_yonhap", "label": "\uc5f0\ud569\ub274\uc2a4", "shape": "dot", "title": "[Source] \uc5f0\ud569\ub274\uc2a4\n\uad6d\uac00 \uacf5\uc2dd \ud1b5\uc2e0\uc0ac."}, {"font": {"color": "white"}, "group": "Source", "id": "src_hankyung", "label": "\ud55c\uad6d\uacbd\uc81c", "shape": "dot", "title": "[Source] \ud55c\uad6d\uacbd\uc81c\n\uad6d\ub0b4 \uc8fc\uc694 \uacbd\uc81c \uc77c\uac04\uc9c0."}, {"font": {"color": "white"}, "group": "Source", "id": "src_maeil", "label": "\ub9e4\uc77c\uacbd\uc81c", "shape": "dot", "title": "[Source] \ub9e4\uc77c\uacbd\uc81c\n\uad6d\ub0b4 \uc8fc\uc694 \uacbd\uc81c \uc77c\uac04\uc9c0."}, {"font": {"color": "white"}, "group": "Source", "id": "src_reuters", "label": "Reuters", "shape": "dot", "title": "[Source] Reuters\n\uae00\ub85c\ubc8c \uc885\ud569 \ud1b5\uc2e0\uc0ac."}, {"font": {"color": "white"}, "group": "Source", "id": "src_bloomberg", "label": "Bloomberg", "shape": "dot", "title": "[Source] Bloomberg\n\uae00\ub85c\ubc8c \uae08\uc735 \uc815\ubcf4 \ubbf8\ub514\uc5b4."}, {"font": {"color": "white"}, "group": "Source", "id": "src_ecos", "label": "\ud55c\uad6d\uc740\ud589 ECOS", "shape": "dot", "title": "[Source] \ud55c\uad6d\uc740\ud589 ECOS\n\ud55c\uad6d\uc740\ud589 \uacf5\uc2dd \uacbd\uc81c\ud1b5\uacc4\uc2dc\uc2a4\ud15c (\uc2e0\ub8b0 Fact \uc18c\uc2a4)."}, {"font": {"color": "white"}, "group": "Source", "id": "src_dart", "label": "\uae08\uac10\uc6d0 DART", "shape": "dot", "title": "[Source] \uae08\uac10\uc6d0 DART\n\uae08\uc735\uac10\ub3c5\uc6d0 \uc804\uc790\uacf5\uc2dc\uc2dc\uc2a4\ud15c (\uae30\uc5c5 \uc2e4\uc801 \uac80\uc99d Fact \uc18c\uc2a4)."}, {"font": {"color": "white"}, "group": "Image", "id": "img1", "label": "\ud658\uc728 \uc804\uad11\ud310 \uc0ac\uc9c4", "shape": "dot", "title": "[Image] \ud658\uc728 \uc804\uad11\ud310 \uc0ac\uc9c4\n\uba85\ub3d9 KEB\ud558\ub098\uc740\ud589 \ud658\uc728 \uc804\uad11\ud310 \uae30\uc0ac \uc774\ubbf8\uc9c0."}, {"font": {"color": "white"}, "group": "Image", "id": "img2", "label": "\uc2e4\uc801 \ubc1c\ud45c PPT", "shape": "dot", "title": "[Image] \uc2e4\uc801 \ubc1c\ud45c PPT\n\uae30\uc5c5 IR \uacf5\uc2dd \uc778\ud3ec\uadf8\ub798\ud53d \uc790\ub8cc \uc774\ubbf8\uc9c0."}, {"font": {"color": "white"}, "group": "Image", "id": "img3", "label": "\uc870\uc791 \uc758\uc2ec \ucc28\ud2b8", "shape": "dot", "title": "[Image] \uc870\uc791 \uc758\uc2ec \ucc28\ud2b8\nSNS \uc720\ud3ec \uc870\uc791\ub41c \uac00\uc9dc \uc8fc\uac00 \uadf8\ub798\ud504 \ucc28\ud2b8 \uc774\ubbf8\uc9c0."}, {"font": {"color": "white"}, "group": "Unknown", "id": "c_samsung", "label": "c_samsung", "shape": "dot", "title": "[Unknown] c_samsung\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "ind_semiconductor", "label": "ind_semiconductor", "shape": "dot", "title": "[Unknown] ind_semiconductor\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "c_sk", "label": "c_sk", "shape": "dot", "title": "[Unknown] c_sk\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "c_hyundai", "label": "c_hyundai", "shape": "dot", "title": "[Unknown] c_hyundai\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "ind_auto", "label": "ind_auto", "shape": "dot", "title": "[Unknown] ind_auto\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "c_kia", "label": "c_kia", "shape": "dot", "title": "[Unknown] c_kia\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "c_lge", "label": "c_lge", "shape": "dot", "title": "[Unknown] c_lge\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "ind_battery", "label": "ind_battery", "shape": "dot", "title": "[Unknown] ind_battery\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "c_posco", "label": "c_posco", "shape": "dot", "title": "[Unknown] c_posco\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "ind_steel", "label": "ind_steel", "shape": "dot", "title": "[Unknown] ind_steel\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "c_kakao", "label": "c_kakao", "shape": "dot", "title": "[Unknown] c_kakao\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "ind_it", "label": "ind_it", "shape": "dot", "title": "[Unknown] ind_it\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "c_naver", "label": "c_naver", "shape": "dot", "title": "[Unknown] c_naver\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "c_celltrion", "label": "c_celltrion", "shape": "dot", "title": "[Unknown] c_celltrion\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "ind_bio", "label": "ind_bio", "shape": "dot", "title": "[Unknown] ind_bio\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "c_hanwha", "label": "c_hanwha", "shape": "dot", "title": "[Unknown] c_hanwha\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "c_kb", "label": "c_kb", "shape": "dot", "title": "[Unknown] c_kb\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "ind_finance", "label": "ind_finance", "shape": "dot", "title": "[Unknown] ind_finance\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "c_shinhan", "label": "c_shinhan", "shape": "dot", "title": "[Unknown] c_shinhan\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "c_kakaobank", "label": "c_kakaobank", "shape": "dot", "title": "[Unknown] c_kakaobank\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "c_toss", "label": "c_toss", "shape": "dot", "title": "[Unknown] c_toss\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "c_krafton", "label": "c_krafton", "shape": "dot", "title": "[Unknown] c_krafton\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "c_hhi", "label": "c_hhi", "shape": "dot", "title": "[Unknown] c_hhi\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "ind_shipbuilding", "label": "ind_shipbuilding", "shape": "dot", "title": "[Unknown] ind_shipbuilding\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "p_lee_jw", "label": "p_lee_jw", "shape": "dot", "title": "[Unknown] p_lee_jw\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "p_choi_tw", "label": "p_choi_tw", "shape": "dot", "title": "[Unknown] p_choi_tw\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "p_chung_ej", "label": "p_chung_ej", "shape": "dot", "title": "[Unknown] p_chung_ej\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "p_lee_hz", "label": "p_lee_hz", "shape": "dot", "title": "[Unknown] p_lee_hz\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "p_rhee", "label": "p_rhee", "shape": "dot", "title": "[Unknown] p_rhee\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "o_bok", "label": "o_bok", "shape": "dot", "title": "[Unknown] o_bok\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "p_choi_sg", "label": "p_choi_sg", "shape": "dot", "title": "[Unknown] p_choi_sg\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "o_moef", "label": "o_moef", "shape": "dot", "title": "[Unknown] o_moef\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "p_kim_bs", "label": "p_kim_bs", "shape": "dot", "title": "[Unknown] p_kim_bs\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "o_fsc", "label": "o_fsc", "shape": "dot", "title": "[Unknown] o_fsc\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "o_fss", "label": "o_fss", "shape": "dot", "title": "[Unknown] o_fss\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "o_ftc", "label": "o_ftc", "shape": "dot", "title": "[Unknown] o_ftc\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "o_fed", "label": "o_fed", "shape": "dot", "title": "[Unknown] o_fed\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "o_imf", "label": "o_imf", "shape": "dot", "title": "[Unknown] o_imf\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "o_krx", "label": "o_krx", "shape": "dot", "title": "[Unknown] o_krx\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "ev_fomc", "label": "ev_fomc", "shape": "dot", "title": "[Unknown] ev_fomc\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "a_usdkrw", "label": "a_usdkrw", "shape": "dot", "title": "[Unknown] a_usdkrw\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "a_kospi", "label": "a_kospi", "shape": "dot", "title": "[Unknown] a_kospi\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "ev_mpc", "label": "ev_mpc", "shape": "dot", "title": "[Unknown] ev_mpc\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "pol_rate", "label": "pol_rate", "shape": "dot", "title": "[Unknown] pol_rate\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "ev_legoland", "label": "ev_legoland", "shape": "dot", "title": "[Unknown] ev_legoland\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "ev_taeyoung", "label": "ev_taeyoung", "shape": "dot", "title": "[Unknown] ev_taeyoung\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "pol_pf", "label": "pol_pf", "shape": "dot", "title": "[Unknown] pol_pf\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "ev_samsung_q", "label": "ev_samsung_q", "shape": "dot", "title": "[Unknown] ev_samsung_q\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "ev_chips_war", "label": "ev_chips_war", "shape": "dot", "title": "[Unknown] ev_chips_war\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "a_dram", "label": "a_dram", "shape": "dot", "title": "[Unknown] a_dram\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "a_lithium", "label": "a_lithium", "shape": "dot", "title": "[Unknown] a_lithium\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "a_oil", "label": "a_oil", "shape": "dot", "title": "[Unknown] a_oil\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "ind_energy", "label": "ind_energy", "shape": "dot", "title": "[Unknown] ind_energy\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "a_housepr", "label": "a_housepr", "shape": "dot", "title": "[Unknown] a_housepr\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "pol_dsr", "label": "pol_dsr", "shape": "dot", "title": "[Unknown] pol_dsr\n"}, {"font": {"color": "white"}, "group": "Unknown", "id": "n3", "label": "n3", "shape": "dot", "title": "[Unknown] n3\n"}, {"font": {"color": "white"}, "group": "News", "id": "news_001", "label": "news_001", "shape": "dot", "title": "[News] news_001\n"}, {"font": {"color": "white"}, "group": "Claim", "id": "claim_001", "label": "claim_001", "shape": "dot", "title": "[Claim] claim_001\n"}]);
+                  edges = new vis.DataSet([{"arrows": "to", "from": "src_ecos", "label": "", "title": "{\u0027relation\u0027: \u0027PUBLISHED_BY\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.177542\u0027}", "to": "o_bok"}, {"arrows": "to", "from": "src_dart", "label": "", "title": "{\u0027relation\u0027: \u0027MANAGED_BY\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.177614\u0027}", "to": "o_fss"}, {"arrows": "to", "from": "img1", "label": "", "title": "{\u0027relation\u0027: \u0027ILLUSTRATES\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.177325\u0027}", "to": "n3"}, {"arrows": "to", "from": "img2", "label": "", "title": "{\u0027relation\u0027: \u0027ABOUT\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.177397\u0027}", "to": "c_samsung"}, {"arrows": "to", "from": "img3", "label": "", "title": "{\u0027relation\u0027: \u0027ABOUT\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.177469\u0027}", "to": "a_kospi"}, {"arrows": "to", "from": "c_samsung", "label": "", "title": "{\u0027relation\u0027: \u0027BELONGS_TO\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.173871\u0027}", "to": "ind_semiconductor"}, {"arrows": "to", "from": "c_samsung", "label": "", "title": "{\u0027relation\u0027: \u0027AFFECTS\u0027, \u0027effect\u0027: \u0027positive\u0027, \u0027strength\u0027: 0.82, \u0027confidence\u0027: 0.91, \u0027evidence_chunk\u0027: \u0027\uc0bc\uc131\uc804\uc790 \uc0c1\uc2b9\uc138\uc5d0 \ucf54\uc2a4\ud53c \uc0c1\uc2b9\u0027, \u0027support_count\u0027: 1, \u0027supporting_news\u0027: [\u0027news_001\u0027], \u0027updated_at\u0027: \u00272026-05-21T22:23:38.177754\u0027}", "to": "a_kospi"}, {"arrows": "to", "from": "c_sk", "label": "", "title": "{\u0027relation\u0027: \u0027BELONGS_TO\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.173959\u0027}", "to": "ind_semiconductor"}, {"arrows": "to", "from": "c_hyundai", "label": "", "title": "{\u0027relation\u0027: \u0027BELONGS_TO\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.174055\u0027}", "to": "ind_auto"}, {"arrows": "to", "from": "c_kia", "label": "", "title": "{\u0027relation\u0027: \u0027BELONGS_TO\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.174142\u0027}", "to": "ind_auto"}, {"arrows": "to", "from": "c_lge", "label": "", "title": "{\u0027relation\u0027: \u0027BELONGS_TO\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.174225\u0027}", "to": "ind_battery"}, {"arrows": "to", "from": "c_posco", "label": "", "title": "{\u0027relation\u0027: \u0027BELONGS_TO\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.174307\u0027}", "to": "ind_steel"}, {"arrows": "to", "from": "c_kakao", "label": "", "title": "{\u0027relation\u0027: \u0027BELONGS_TO\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.174389\u0027}", "to": "ind_it"}, {"arrows": "to", "from": "c_naver", "label": "", "title": "{\u0027relation\u0027: \u0027BELONGS_TO\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.174464\u0027}", "to": "ind_it"}, {"arrows": "to", "from": "c_celltrion", "label": "", "title": "{\u0027relation\u0027: \u0027BELONGS_TO\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.174537\u0027}", "to": "ind_bio"}, {"arrows": "to", "from": "c_hanwha", "label": "", "title": "{\u0027relation\u0027: \u0027BELONGS_TO\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.174610\u0027}", "to": "ind_semiconductor"}, {"arrows": "to", "from": "c_kb", "label": "", "title": "{\u0027relation\u0027: \u0027BELONGS_TO\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.174685\u0027}", "to": "ind_finance"}, {"arrows": "to", "from": "c_shinhan", "label": "", "title": "{\u0027relation\u0027: \u0027BELONGS_TO\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.174757\u0027}", "to": "ind_finance"}, {"arrows": "to", "from": "c_kakaobank", "label": "", "title": "{\u0027relation\u0027: \u0027BELONGS_TO\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.174830\u0027}", "to": "ind_finance"}, {"arrows": "to", "from": "c_toss", "label": "", "title": "{\u0027relation\u0027: \u0027BELONGS_TO\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.174903\u0027}", "to": "ind_finance"}, {"arrows": "to", "from": "c_krafton", "label": "", "title": "{\u0027relation\u0027: \u0027BELONGS_TO\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.174975\u0027}", "to": "ind_it"}, {"arrows": "to", "from": "c_hhi", "label": "", "title": "{\u0027relation\u0027: \u0027BELONGS_TO\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.175048\u0027}", "to": "ind_shipbuilding"}, {"arrows": "to", "from": "p_lee_jw", "label": "", "title": "{\u0027relation\u0027: \u0027LEADS\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.175126\u0027}", "to": "c_samsung"}, {"arrows": "to", "from": "p_choi_tw", "label": "", "title": "{\u0027relation\u0027: \u0027LEADS\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.175209\u0027}", "to": "c_sk"}, {"arrows": "to", "from": "p_chung_ej", "label": "", "title": "{\u0027relation\u0027: \u0027LEADS\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.175290\u0027}", "to": "c_hyundai"}, {"arrows": "to", "from": "p_lee_hz", "label": "", "title": "{\u0027relation\u0027: \u0027LEADS\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.175364\u0027}", "to": "c_naver"}, {"arrows": "to", "from": "p_rhee", "label": "", "title": "{\u0027relation\u0027: \u0027LEADS\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.175436\u0027}", "to": "o_bok"}, {"arrows": "to", "from": "o_bok", "label": "", "title": "{\u0027relation\u0027: \u0027COLLABORATES_WITH\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.175654\u0027}", "to": "o_moef"}, {"arrows": "to", "from": "p_choi_sg", "label": "", "title": "{\u0027relation\u0027: \u0027LEADS\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.175509\u0027}", "to": "o_moef"}, {"arrows": "to", "from": "p_kim_bs", "label": "", "title": "{\u0027relation\u0027: \u0027LEADS\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.175582\u0027}", "to": "o_fsc"}, {"arrows": "to", "from": "o_fsc", "label": "", "title": "{\u0027relation\u0027: \u0027SUPERVISES\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.175727\u0027}", "to": "o_fss"}, {"arrows": "to", "from": "o_ftc", "label": "", "title": "{\u0027relation\u0027: \u0027COLLABORATES_WITH\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.175799\u0027}", "to": "o_fsc"}, {"arrows": "to", "from": "o_fed", "label": "", "title": "{\u0027relation\u0027: \u0027AFFECTS\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.175872\u0027}", "to": "o_bok"}, {"arrows": "to", "from": "o_imf", "label": "", "title": "{\u0027relation\u0027: \u0027COLLABORATES_WITH\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.175945\u0027}", "to": "o_bok"}, {"arrows": "to", "from": "o_krx", "label": "", "title": "{\u0027relation\u0027: \u0027SUPERVISED_BY\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.176020\u0027}", "to": "o_fsc"}, {"arrows": "to", "from": "ev_fomc", "label": "", "title": "{\u0027relation\u0027: \u0027HELD_BY\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.176100\u0027}", "to": "o_fed"}, {"arrows": "to", "from": "ev_fomc", "label": "", "title": "{\u0027relation\u0027: \u0027AFFECTS\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.176181\u0027}", "to": "a_usdkrw"}, {"arrows": "to", "from": "ev_fomc", "label": "", "title": "{\u0027relation\u0027: \u0027AFFECTS\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.176261\u0027}", "to": "a_kospi"}, {"arrows": "to", "from": "a_kospi", "label": "", "title": "{\u0027relation\u0027: \u0027TRADED_AT\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.177164\u0027}", "to": "o_krx"}, {"arrows": "to", "from": "ev_mpc", "label": "", "title": "{\u0027relation\u0027: \u0027HELD_BY\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.176340\u0027}", "to": "o_bok"}, {"arrows": "to", "from": "ev_mpc", "label": "", "title": "{\u0027relation\u0027: \u0027DECIDES\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.176412\u0027}", "to": "pol_rate"}, {"arrows": "to", "from": "ev_legoland", "label": "", "title": "{\u0027relation\u0027: \u0027AFFECTS\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.176485\u0027}", "to": "ind_finance"}, {"arrows": "to", "from": "ev_taeyoung", "label": "", "title": "{\u0027relation\u0027: \u0027TRIGGERS\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.176557\u0027}", "to": "pol_pf"}, {"arrows": "to", "from": "ev_samsung_q", "label": "", "title": "{\u0027relation\u0027: \u0027ANNOUNCED_BY\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.176630\u0027}", "to": "c_samsung"}, {"arrows": "to", "from": "ev_chips_war", "label": "", "title": "{\u0027relation\u0027: \u0027AFFECTS\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.176702\u0027}", "to": "c_samsung"}, {"arrows": "to", "from": "ev_chips_war", "label": "", "title": "{\u0027relation\u0027: \u0027AFFECTS\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.176775\u0027}", "to": "c_sk"}, {"arrows": "to", "from": "a_dram", "label": "", "title": "{\u0027relation\u0027: \u0027MEASURES\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.176854\u0027}", "to": "c_samsung"}, {"arrows": "to", "from": "a_dram", "label": "", "title": "{\u0027relation\u0027: \u0027MEASURES\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.176927\u0027}", "to": "c_sk"}, {"arrows": "to", "from": "a_lithium", "label": "", "title": "{\u0027relation\u0027: \u0027AFFECTS\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.177000\u0027}", "to": "c_lge"}, {"arrows": "to", "from": "a_oil", "label": "", "title": "{\u0027relation\u0027: \u0027AFFECTS\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.177082\u0027}", "to": "ind_energy"}, {"arrows": "to", "from": "a_housepr", "label": "", "title": "{\u0027relation\u0027: \u0027AFFECTED_BY\u0027, \u0027confidence\u0027: 1.0, \u0027support_count\u0027: 1, \u0027created_at\u0027: \u00272026-05-21T22:23:38.177247\u0027}", "to": "pol_dsr"}, {"arrows": "to", "from": "news_001", "label": "", "title": "{\u0027relation\u0027: \u0027SOURCE_FROM\u0027, \u0027confidence\u0027: 1.0}", "to": "src_reuters"}, {"arrows": "to", "from": "news_001", "label": "", "title": "{\u0027relation\u0027: \u0027MENTIONS\u0027, \u0027confidence\u0027: 0.8}", "to": "c_samsung"}, {"arrows": "to", "from": "news_001", "label": "", "title": "{\u0027relation\u0027: \u0027MENTIONS\u0027, \u0027confidence\u0027: 0.8}", "to": "a_kospi"}, {"arrows": "to", "from": "news_001", "label": "", "title": "{\u0027relation\u0027: \u0027CONTAINS\u0027}", "to": "claim_001"}, {"arrows": "to", "from": "claim_001", "label": "", "title": "{\u0027relation\u0027: \u0027ABOUT\u0027}", "to": "c_samsung"}]);
+
+                  nodeColors = {};
+                  allNodes = nodes.get({ returnType: "Object" });
+                  for (nodeId in allNodes) {
+                    nodeColors[nodeId] = allNodes[nodeId].color;
+                  }
+                  allEdges = edges.get({ returnType: "Object" });
+                  // adding nodes and edges to the graph
+                  data = {nodes: nodes, edges: edges};
+
+                  var options = {
+    "configure": {
+        "enabled": true,
+        "filter": [
+            "physics"
+        ]
+    },
+    "edges": {
+        "color": {
+            "inherit": true
+        },
+        "smooth": {
+            "enabled": true,
+            "type": "dynamic"
+        }
+    },
+    "interaction": {
+        "dragNodes": true,
+        "hideEdgesOnDrag": false,
+        "hideNodesOnDrag": false
+    },
+    "physics": {
+        "enabled": true,
+        "forceAtlas2Based": {
+            "avoidOverlap": 0,
+            "centralGravity": 0.01,
+            "damping": 0.4,
+            "gravitationalConstant": -50,
+            "springConstant": 0.08,
+            "springLength": 100
+        },
+        "solver": "forceAtlas2Based",
+        "stabilization": {
+            "enabled": true,
+            "fit": true,
+            "iterations": 1000,
+            "onlyDynamicEdges": false,
+            "updateInterval": 50
+        }
+    }
+};
+
+                  
+
+
+                  
+                  // if this network requires displaying the configure window,
+                  // put it in its div
+                  options.configure["container"] = document.getElementById("config");
+                  
+
+                  network = new vis.Network(container, data, options);
+
+                  
+
+                  
+
+                  
+
+
+                  
+                      network.on("stabilizationProgress", function(params) {
+                          document.getElementById('loadingBar').removeAttribute("style");
+                          var maxWidth = 496;
+                          var minWidth = 20;
+                          var widthFactor = params.iterations/params.total;
+                          var width = Math.max(minWidth,maxWidth * widthFactor);
+                          document.getElementById('bar').style.width = width + 'px';
+                          document.getElementById('text').innerHTML = Math.round(widthFactor*100) + '%';
+                      });
+                      network.once("stabilizationIterationsDone", function() {
+                          document.getElementById('text').innerHTML = '100%';
+                          document.getElementById('bar').style.width = '496px';
+                          document.getElementById('loadingBar').style.opacity = 0;
+                          // really clean the dom element
+                          setTimeout(function () {document.getElementById('loadingBar').style.display = 'none';}, 500);
+                      });
+                  
+
+                  return network;
+
+              }
+              drawGraph();
+        </script>
+    </body>
+</html>
