@@ -1,0 +1,30 @@
+# Secrets and local credentials
+.env
+.env.*
+*.pem
+*.key
+
+# Runtime logs and generated output
+output.txt
+*.log
+
+# Python cache and virtual environments
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Large model/cache artifacts
+.cache/
+models/
+checkpoints/
