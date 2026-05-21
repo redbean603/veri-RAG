@@ -294,7 +294,222 @@ def fix_apt_price():
 
 
 # ============================================================
-# 5. 국가채무 (열린재정 - 파싱 수정)
+# 5. 기준금리 (한국은행 ECOS API)
+# ============================================================
+
+
+def ingest_base_rate():
+    """
+    한국은행 기준금리
+    stat_code: 722Y001 (한국은행 기준금리)
+    """
+    import requests
+
+    api_key = os.environ.get("ECOS_API_KEY")
+    if not api_key:
+        print("  기준금리: ECOS_API_KEY 필요")
+        return 0
+
+    url = (
+        f"https://ecos.bok.or.kr/api/StatisticSearch/"
+        f"{api_key}/json/kr/1/100/722Y001/M/202501/202612/0101000"
+    )
+
+    resp = requests.get(url, timeout=30)
+    data = resp.json()
+
+    if "StatisticSearch" not in data:
+        print(
+            f"  기준금리: API 오류 - {data.get('RESULT', {}).get('MESSAGE', 'unknown')}"
+        )
+        return 0
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    rows = []
+    for item in data["StatisticSearch"]["row"]:
+        try:
+            date_str = f"{item['TIME'][:4]}-{item['TIME'][4:6]}-01"
+            value = float(item["DATA_VALUE"])
+            rows.append(
+                (
+                    "BASE_RATE_KR",
+                    "한국은행 기준금리",
+                    value,
+                    "percent",
+                    date_str,
+                    "한국은행",
+                )
+            )
+        except ValueError, KeyError:
+            continue
+
+    execute_values(
+        cur,
+        """
+        INSERT INTO economic_indicators
+            (indicator_code, indicator_name, value, unit, observation_date, source)
+        VALUES %s
+        ON CONFLICT (indicator_code, observation_date, source) DO UPDATE
+        SET value = EXCLUDED.value, fetched_at = NOW()
+        """,
+        rows,
+    )
+
+    conn.commit()
+    cur.close()
+    conn.close()
+    print(f"  기준금리: {len(rows)}건")
+    return len(rows)
+
+
+# ============================================================
+# 6. 소비자물가지수 CPI (한국은행 ECOS API)
+# ============================================================
+
+
+def ingest_cpi():
+    """
+    소비자물가지수
+    stat_code: 901Y009 (소비자물가지수 총지수)
+    """
+    import requests
+
+    api_key = os.environ.get("ECOS_API_KEY")
+    if not api_key:
+        print("  CPI: ECOS_API_KEY 필요")
+        return 0
+
+    url = (
+        f"https://ecos.bok.or.kr/api/StatisticSearch/"
+        f"{api_key}/json/kr/1/100/901Y009/M/202501/202612/0"
+    )
+
+    resp = requests.get(url, timeout=30)
+    data = resp.json()
+
+    if "StatisticSearch" not in data:
+        print(f"  CPI: API 오류 - {data.get('RESULT', {}).get('MESSAGE', 'unknown')}")
+        return 0
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    rows = []
+    for item in data["StatisticSearch"]["row"]:
+        try:
+            date_str = f"{item['TIME'][:4]}-{item['TIME'][4:6]}-01"
+            value = float(item["DATA_VALUE"])
+            rows.append(
+                ("CPI_KR", "소비자물가지수", value, "index", date_str, "통계청")
+            )
+        except ValueError, KeyError:
+            continue
+
+    execute_values(
+        cur,
+        """
+        INSERT INTO economic_indicators
+            (indicator_code, indicator_name, value, unit, observation_date, source)
+        VALUES %s
+        ON CONFLICT (indicator_code, observation_date, source) DO UPDATE
+        SET value = EXCLUDED.value, fetched_at = NOW()
+        """,
+        rows,
+    )
+
+    conn.commit()
+    cur.close()
+    conn.close()
+    print(f"  CPI: {len(rows)}건")
+    return len(rows)
+
+
+# ============================================================
+# 7. 기름값 (오피넷 API - 한국석유공사)
+#    API 신청: https://www.opinet.co.kr → 유가정보 API → 회원가입 → 키 발급
+# ============================================================
+
+
+def ingest_oil_price():
+    """
+    오피넷 API: 전국 주유소 평균 유가
+    API: /avgAllPrice.do (전국 평균 유가 현재)
+    API: /avgSidoPrice.do (시도별 평균 유가)
+    """
+    import requests
+
+    api_key = os.environ.get("OPINET_API_KEY")
+    if not api_key:
+        print("  기름값: OPINET_API_KEY 필요")
+        print("  발급: https://www.opinet.co.kr → 유가정보 API → 회원가입")
+        return 0
+
+    # 전국 평균 유가 (현재)
+    url = f"http://www.opinet.co.kr/api/avgAllPrice.do?out=json&code={api_key}"
+
+    try:
+        resp = requests.get(url, timeout=30)
+        data = resp.json()
+
+        oil_data = data.get("RESULT", {}).get("OIL", [])
+        if not oil_data:
+            print("  기름값: 데이터 없음")
+            return 0
+
+        conn = get_db()
+        cur = conn.cursor()
+        today = datetime.now().strftime("%Y-%m-%d")
+
+        rows = []
+        for item in oil_data:
+            prod_code = item.get("PRODCD")
+            price = float(item.get("PRICE", 0))
+            trade_date = item.get("TRADE_DT", today)
+
+            # 날짜 포맷 변환: YYYYMMDD → YYYY-MM-DD
+            if len(trade_date) == 8:
+                trade_date = f"{trade_date[:4]}-{trade_date[4:6]}-{trade_date[6:]}"
+
+            # 유종 매핑
+            prod_map = {
+                "B027": ("OIL_GASOLINE", "휘발유 전국평균가격", "won_per_liter"),
+                "D047": ("OIL_DIESEL", "경유 전국평균가격", "won_per_liter"),
+                "C004": ("OIL_LPG", "LPG 전국평균가격", "won_per_liter"),
+                "B034": ("OIL_PREMIUM", "고급휘발유 전국평균가격", "won_per_liter"),
+            }
+
+            if prod_code in prod_map:
+                code, name, unit = prod_map[prod_code]
+                rows.append((code, name, price, unit, trade_date, "오피넷"))
+
+        if rows:
+            execute_values(
+                cur,
+                """
+                INSERT INTO economic_indicators
+                    (indicator_code, indicator_name, value, unit, observation_date, source)
+                VALUES %s
+                ON CONFLICT (indicator_code, observation_date, source) DO UPDATE
+                SET value = EXCLUDED.value, fetched_at = NOW()
+                """,
+                rows,
+            )
+
+        conn.commit()
+        cur.close()
+        conn.close()
+        print(f"  기름값: {len(rows)}건 (휘발유/경유/LPG/고급)")
+        return len(rows)
+
+    except Exception as e:
+        print(f"  기름값: 오류 - {e}")
+        return 0
+
+
+# ============================================================
+# 8. 국가채무 (열린재정 - 파싱 수정)
 # ============================================================
 
 
