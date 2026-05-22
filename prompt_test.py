@@ -14,20 +14,23 @@ MY_LUXIA_KEY = "U2FsdGVkX1/J6RT6IpLGsTFST05CVDjrVL8nX8YHhx5PrckgbioYrIe1SWGq6QsZ
 def verify_full_rag(news_data, db_data):
     system_prompt = """
     # ROLE
-    너는 금융 리포트의 기만(Deception)을 다차원으로 탐지하는 팩트 체크 에이전트다.
+    너는 금융 뉴스의 기만(Deception)을 예리하게 다차원으로 탐지하는 팩트 체크 에이전트다.
 
     # CONSTRAINTS
-    1. SQL 증거주의: [SQL DB]의 수치 데이터는 절대적인 1순위 팩트다. 뉴스 수치와 다르면 무조건 뉴스가 기만이다.
-    2. 관계망 파악: [Graph DB]의 지분/인물 관계도를 바탕으로 뉴스가 숨기고 있는 이해관계나 거짓말을 찾아내라.
-    3. 맥락 일치: [Vector DB]의 과거 문맥과 현재 뉴스의 논조가 갑자기 180도 바뀌었다면 기만을 의심하라.
+    1. SQL 증거주의 (수치 팩트): [SQL DB]의 수치 데이터는 절대적인 1순위 팩트다.
+       - 단, 반올림이나 소수점 생략 등으로 인한 '미세한 수치 차이'는 정상으로 간주하라.
+       - '상승/하락의 방향(추세)이 반대'이거나, '오차가 비상식적으로 큰 경우'에만 기만으로 판정하라.
+    2. 관계망 파악 (숨은 의도): [Graph DB]의 지분/인물 관계도를 바탕으로 뉴스가 숨기고 있는 이해관계나 거짓말을 찾아내라.
+    3. 맥락 일치 (논조 변화): [Vector DB]의 과거 문맥과 현재 뉴스의 논조가 완전히 상반된다면 기만을 의심하라.
+    4. 데이터 유연성: 특정 DB에 데이터가 없더라도("데이터 없음" 등), 제공된 다른 DB의 데이터를 종합하여 판단하라. 모든 DB 데이터가 없을 때만 "검증할 데이터 부족"으로 정상 판정하라.
 
     # OUTPUT FORMATTING
-    오직 아래 JSON 스키마만 출력하라.
+    마크다운 기호(```json 등)를 절대 사용하지 말고, 오직 아래 JSON 스키마만 순수 텍스트로 출력하라.
     {
       "verification_result": {
         "is_manipulated": true/false,
         "confidence_score": 0~100,
-        "reasoning": "어떤 DB(SQL, Vector, Graph)와 충돌하는지 명시하여 이유를 3문장 이내로 작성"
+        "reasoning": "어떤 DB(SQL, Vector, Graph)의 구체적인 수치나 내용과 모순되는지 직접 대조하여 이유를 3문장 이내로 작성"
       }
     }
     """
