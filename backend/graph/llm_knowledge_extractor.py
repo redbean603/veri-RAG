@@ -2,7 +2,10 @@ import json
 from google import genai
 from openai import OpenAI
 import os
+import re
+import hashlib
 from dotenv import load_dotenv
+from data.ontology import nodes
 
 
 ## sample news data
@@ -29,20 +32,120 @@ client = OpenAI(
 )
 
 
+ONTOLOGY_BY_ID = {
+    node["id"]: node
+    for node in nodes
+}
+
+ONTOLOGY_ID_BY_NAME = {
+    node.get("name"): node["id"]
+    for node in nodes
+    if node.get("name")
+}
+
+KNOWN_ENTITY_NAME_TO_ID = {
+    "정용진": "person:jeong_yongjin",
+    "구윤철": "person:gu_yooncheol",
+    "송미령": "person:song_miryeong",
+    "Agriculture Minister": "person:song_miryeong",
+    "스타벅스코리아": "company:starbucks_korea",
+    "신세계그룹": "organization:shinsegae_group",
+    "농림축산식품부": "organization:mafra",
+    "한국 정부": "organization:government_of_korea",
+    "정부": "organization:government_of_korea",
+    "Government": "organization:government_of_korea",
+    "소비자": "economicagent:consumers",
+    "소비자들": "economicagent:consumers",
+    "고객": "economicagent:consumers",
+    "노조": "economicagent:union",
+    "외국인 투자자": "economicagent:foreign_investors",
+    "외국인": "economicagent:foreign_investors",
+    "개인 투자자": "economicagent:retail_investors",
+    "개인": "economicagent:retail_investors",
+    "농민": "economicagent:farmers",
+    "원·달러 환율": "asset:usdkrw",
+    "원/달러 환율": "asset:usdkrw",
+    "원달러 환율": "asset:usdkrw",
+    "고환율": "asset:usdkrw",
+    "IT하드웨어": "industry:it_platform",
+    "농업": "industry:agriculture",
+    "Agriculture": "industry:agriculture",
+    "양파 가격": "asset:onion_price",
+    "Onion Price": "asset:onion_price",
+}
+
+CANONICAL_ENTITY_NAMES = {
+    "person:jeong_yongjin": "정용진",
+    "person:gu_yooncheol": "구윤철",
+    "person:song_miryeong": "송미령",
+    "company:starbucks_korea": "스타벅스코리아",
+    "organization:shinsegae_group": "신세계그룹",
+    "organization:mafra": "농림축산식품부",
+    "organization:government_of_korea": "한국 정부",
+    "economicagent:consumers": "소비자",
+    "economicagent:union": "노조",
+    "economicagent:foreign_investors": "외국인 투자자",
+    "economicagent:retail_investors": "개인 투자자",
+    "economicagent:farmers": "농민",
+    "asset:usdkrw": "원달러 환율",
+    "industry:it_platform": "IT/플랫폼",
+    "industry:agriculture": "농업",
+    "asset:onion_price": "양파 가격",
+}
+
+GENERIC_ENTITY_NAMES = {
+    "증시",
+    "국내 증시",
+    "재건축",
+    "주요 지주회사",
+    "지주회사",
+    "시장",
+    "경제",
+}
+
+ENTITY_TYPE_TO_PREFIX = {
+    "Company": "company",
+    "Policy": "policy",
+    "Event": "event",
+    "Industry": "industry",
+    "Asset": "asset",
+    "Person": "person",
+    "Organization": "organization",
+    "EconomicAgent": "economicagent",
+}
+
+
 SYSTEM_PROMPT = """
 You are an economic knowledge graph extractor.
 
 Your task is to extract:
 
-1. Economic entities
-2. Economic relations
-3. Economic claims
+1. Economic claims
+2. Economic entities grounded in those claims
+3. Economic relations grounded in those claims
 
 Return ONLY valid JSON.
 
 Do NOT include markdown.
 Do NOT explain anything.
 Do NOT generate text outside JSON.
+
+
+# =========================================================
+# EXTRACTION PRINCIPLES
+# =========================================================
+
+- Extract claims FIRST.
+- Then extract entities from the selected claims.
+- Then extract relations only from the selected claims.
+- Extract ONLY information explicitly supported by the article.
+- Do NOT infer speculative macroeconomic relations.
+- Do NOT hallucinate causal structure.
+- Prefer precision over recall.
+- If uncertain, omit the relation/entity.
+- Prefer event/behavior relationships over static affiliation.
+- Do NOT extract static affiliation or ownership relations
+  unless the article's main economic claim is about that affiliation.
 
 
 # =========================================================
@@ -54,6 +157,12 @@ Do NOT generate text outside JSON.
 - IDs must be deterministic and stable.
 - IDs must NEVER be random.
 - Reuse existing ontology IDs whenever possible.
+- Reuse an existing ontology ID ONLY when the entity name
+  refers to the exact same real-world entity.
+- If the entity name does not match the existing ontology entity,
+  create a new canonical ID instead of reusing a similar-looking ID.
+- If two entities refer to the same real-world entity,
+  reuse the same canonical ID.
 - Do NOT create duplicate entities.
 
 
@@ -176,6 +285,28 @@ VALID_ENTITY_TYPES = [
 ]
 
 
+# =========================================================
+# ENTITY TYPE RULES
+# =========================================================
+
+Use "Company" for:
+
+- commercial corporations
+- banks
+- listed firms
+- private firms
+
+
+Use "Organization" ONLY for:
+
+- governments
+- regulators
+- public institutions
+- associations
+- NGOs
+- international organizations
+
+
 Use "Asset" for:
 
 - stock index
@@ -191,13 +322,24 @@ Use "EconomicAgent" for:
 - institutional investors
 - retail investors
 - market participants
+- consumers
+- customers
+- labor unions
+- workers
+- farmers
 
+
+# =========================================================
+# ENTITY FILTERING RULES
+# =========================================================
 
 Extract ONLY:
 
 - economically meaningful
 - specific
 - named entities
+- entities directly relevant to the article's
+  economic narrative
 
 
 Do NOT extract:
@@ -205,7 +347,47 @@ Do NOT extract:
 - vague concepts
 - generic economic terms
 - abstract nouns
-- unnamed groups
+- unnamed groups unless they are explicit economic actors
+  in a selected claim
+- broad industries unless directly discussed
+- entities only weakly mentioned
+
+
+# =========================================================
+# CLAIM-FIRST EXTRACTION WORKFLOW
+# =========================================================
+
+Step 1. Select 1 to 4 core claims.
+
+Core claims should describe economically meaningful
+events, actions, conflicts, risks, reactions, or impacts.
+
+Step 2. Extract entities only if they participate
+in at least one selected claim.
+
+Step 3. Extract relations only if the selected claim
+states an action, impact, conflict, support,
+or measurement between two entities.
+
+Do NOT create relations merely because two entities
+are mentioned in the same sentence.
+
+For example:
+
+- "정용진 신세계그룹 회장이 사과했다"
+  is a claim.
+  It does NOT imply that Starbucks SUPPORTS 정용진.
+
+- "소비자들의 불매운동과 회원 탈퇴가 확산됐다"
+  should produce:
+  consumers AFFECTS Starbucks Korea
+  with effect "weakening".
+
+- "부적절한 이벤트로 스타벅스코리아가 비난을 받고 있다"
+  should produce:
+  consumers AFFECTS Starbucks Korea
+  with effect "weakening"
+  if consumers/public backlash is explicitly stated.
 
 
 # =========================================================
@@ -228,25 +410,96 @@ VALID_RELATION_TYPES = [
 ]
 
 
-Effect values:
+# =========================================================
+# RELATION SEMANTICS
+# =========================================================
 
-- positive
-- negative
-- neutral
+AFFECTS:
+Directly impacts the target entity through
+explicitly stated economic influence.
+
+SUPPORTS:
+Provides direct support, cooperation,
+investment, policy assistance,
+or favorable influence explicitly stated
+in the article.
+
+MEASURES:
+Represents metric or indicator relationships.
+
+
+Relations represent semantic relation categories.
+
+Effects represent the CURRENT relation state,
+directional change, or intensity
+described in THIS article.
+
+The same relation between two entities
+may persist over time while its effect/state changes.
+
+Do NOT create new relation types
+for state changes.
+
+Use the same relation type
+and update the effect.
+
+
+# =========================================================
+# RELATION EXTRACTION CONSTRAINTS
+# =========================================================
+
+Extract ONLY relations explicitly supported
+by the article.
+
+Do NOT infer macroeconomic,
+financial, or causal relations
+unless directly stated.
+
+Do NOT create speculative relations.
+
+Do NOT create relations from general world knowledge.
+
+If the article merely mentions two entities together,
+do NOT assume a relation exists.
+
+
+# =========================================================
+# EFFECT RULES
+# =========================================================
+
+VALID_EFFECT_VALUES = [
+
+    "active",
+    "strengthening",
+    "weakening",
+    "inactive",
+    "neutral"
+
+]
+
+
+Effects describe:
+
+- current relation state
+- directional change
+- relation intensity
+
+Effects do NOT represent sentiment.
 
 
 Examples:
 
-- 금리 인상
-    AFFECTS
-    코스피
+- 협력 확대
+    → strengthening
 
-- 유가 상승
-    AFFECTS
-    항공주
+- 공급 축소
+    → weakening
 
+- 계약 종료
+    → inactive
 
-Confidence must be between 0 and 1.
+- 협력 유지
+    → active
 
 
 # =========================================================
@@ -255,11 +508,17 @@ Confidence must be between 0 and 1.
 
 Claims are textual evidence.
 
-Claims should summarize important economic statements from the article.
+Claims should summarize important
+economic statements from the article.
 
 Claims are NOT entities.
 
 Keep claims concise and factual.
+
+Claim confidence reflects extraction certainty,
+NOT factual truth.
+
+Claim confidence must be between 0 and 1.
 
 
 # =========================================================
@@ -280,8 +539,7 @@ Keep claims concise and factual.
             "source": "...",
             "target": "...",
             "relation": "...",
-            "effect": "...",
-            "confidence": 0.0
+            "effect": "..."
         }
     ],
 
@@ -292,8 +550,216 @@ Keep claims concise and factual.
         }
     ]
 }
+
 """
 
+def normalize_entity_id(entity_id):
+
+    entity_id = entity_id.lower()
+
+    entity_id = entity_id.replace("-", "_")
+
+    entity_id = entity_id.replace("&", "_and_")
+
+    entity_id = entity_id.replace(
+        "economic_agent",
+        "economicagent"
+    )
+
+    entity_id = entity_id.replace(
+        "economicagent",
+        "economicagent"
+    )
+
+    if ":" in entity_id:
+
+        prefix, value = entity_id.split(":", 1)
+
+        value = re.sub(r"[^a-z0-9_]+", "_", value)
+
+        value = re.sub(r"_+", "_", value).strip("_")
+
+        return f"{prefix}:{value}"
+
+    entity_id = re.sub(r"[^a-z0-9_]+", "_", entity_id)
+
+    entity_id = re.sub(r"_+", "_", entity_id).strip("_")
+
+    return entity_id
+
+
+def normalize_name(name):
+
+    if not name:
+
+        return ""
+
+    return re.sub(r"\s+", "", str(name)).strip()
+
+
+def is_valid_entity_id(entity_id):
+
+    if not entity_id or ":" not in entity_id:
+
+        return False
+
+    prefix, value = entity_id.split(":", 1)
+
+    return bool(prefix and value)
+
+
+def should_drop_entity(entity):
+
+    entity_name = entity.get("name")
+
+    entity_id = entity.get("id")
+
+    if not is_valid_entity_id(entity_id):
+
+        return True
+
+    if entity_name in GENERIC_ENTITY_NAMES:
+
+        return True
+
+    return False
+
+
+def names_match(left, right):
+
+    return normalize_name(left) == normalize_name(right)
+
+
+def fallback_entity_id(entity_type, name):
+
+    prefix = ENTITY_TYPE_TO_PREFIX.get(entity_type, "entity")
+
+    digest = hashlib.sha1(
+        normalize_name(name).encode("utf-8")
+    ).hexdigest()[:10]
+
+    return f"{prefix}:entity_{digest}"
+
+
+def canonicalize_entity(entity):
+
+    entity_id = normalize_entity_id(entity.get("id", ""))
+
+    entity_name = entity.get("name")
+
+    entity_type = entity.get("type")
+
+    if entity_name in ONTOLOGY_ID_BY_NAME:
+
+        return ONTOLOGY_ID_BY_NAME[entity_name]
+
+    if entity_name in KNOWN_ENTITY_NAME_TO_ID:
+
+        return KNOWN_ENTITY_NAME_TO_ID[entity_name]
+
+    ontology_entity = ONTOLOGY_BY_ID.get(entity_id)
+
+    if ontology_entity and names_match(
+        entity_name,
+        ontology_entity.get("name")
+    ):
+
+        return entity_id
+
+    if ontology_entity and not names_match(
+        entity_name,
+        ontology_entity.get("name")
+    ):
+
+        return fallback_entity_id(
+            entity_type,
+            entity_name or entity_id
+        )
+
+    return entity_id
+
+
+def apply_canonical_entity_name(entity):
+
+    canonical_name = CANONICAL_ENTITY_NAMES.get(entity.get("id"))
+
+    if canonical_name:
+
+        entity["name"] = canonical_name
+
+
+def normalize_extraction_result(result):
+
+    id_remap = {}
+    dropped_ids = set()
+    normalized_entities = []
+    seen_entity_ids = set()
+
+    for entity in result.get("entities", []):
+
+        if "id" not in entity:
+
+            continue
+
+        original_id = normalize_entity_id(entity["id"])
+
+        canonical_id = canonicalize_entity(entity)
+
+        entity["id"] = canonical_id
+
+        if original_id != canonical_id:
+
+            id_remap[original_id] = canonical_id
+
+        apply_canonical_entity_name(entity)
+
+        if should_drop_entity(entity):
+
+            dropped_ids.add(canonical_id)
+            dropped_ids.add(original_id)
+
+            continue
+
+        if canonical_id in seen_entity_ids:
+
+            continue
+
+        seen_entity_ids.add(canonical_id)
+
+        normalized_entities.append(entity)
+
+    result["entities"] = normalized_entities
+
+    normalized_relations = []
+
+    for relation in result.get("relations", []):
+
+        if "source" in relation:
+
+            source = normalize_entity_id(relation["source"])
+
+            relation["source"] = id_remap.get(source, source)
+
+        if "target" in relation:
+
+            target = normalize_entity_id(relation["target"])
+
+            relation["target"] = id_remap.get(target, target)
+
+        if (
+            relation.get("source") in dropped_ids
+            or relation.get("target") in dropped_ids
+            or not is_valid_entity_id(relation.get("source"))
+            or not is_valid_entity_id(relation.get("target"))
+        ):
+
+            continue
+
+        normalized_relations.append(relation)
+
+    result["relations"] = normalized_relations
+
+    return result
 
 
 # =========================================================
@@ -333,19 +799,6 @@ def extract_knowledge_from_llm(content):
 
     raw_text = response.choices[0].message.content.strip()
 
-    # # -------------------------------------------------
-    # # Remove Markdown JSON Fence
-    # # -------------------------------------------------
-
-    # raw_text = raw_text.replace(
-    #     "```json",
-    #     ""
-    # )
-
-    # raw_text = raw_text.replace(
-    #     "```",
-    #     ""
-    # )
 
     raw_text = raw_text.strip()
 
@@ -363,6 +816,9 @@ def extract_knowledge_from_llm(content):
 
         raise ValueError("Invalid JSON response")
     
+    result = normalize_extraction_result(result)
+    
+    
     print(
 
         json.dumps(
@@ -377,6 +833,9 @@ def extract_knowledge_from_llm(content):
         )      
 
     return result
+
+
+
 
 if __name__ == "__main__":
     print(news_data["content"])

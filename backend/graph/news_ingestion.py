@@ -28,6 +28,17 @@ def add_news_node(G, news_data):
     # -------------------------
     source_id = news_data["source"]
 
+    if not G.has_node(source_id):
+
+        G.add_node(
+
+            source_id,
+
+            type="Source",
+
+            name=source_id
+        )
+
     G.add_edge(
 
         news_id,
@@ -43,7 +54,11 @@ def add_or_update_entity_node(G, entity):
 
     entity_id = entity.get("id") or entity.get("entity_id")
 
-    if not entity_id:
+    if (
+        not entity_id
+        or ":" not in entity_id
+        or not entity_id.split(":", 1)[1]
+    ):
 
         return None
 
@@ -56,12 +71,20 @@ def add_or_update_entity_node(G, entity):
 
     if G.has_node(entity_id):
 
-        G.nodes[entity_id].update({
+        node_data = G.nodes[entity_id]
 
-            k: v
-            for k, v in attrs.items()
-            if v is not None
-        })
+        if node_data.get("type") in (None, "Unknown"):
+
+            node_data.update({
+
+                k: v
+                for k, v in attrs.items()
+                if v is not None
+            })
+
+        elif "name" not in node_data:
+
+            node_data["name"] = attrs["name"]
 
     else:
 

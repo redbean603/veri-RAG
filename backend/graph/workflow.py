@@ -22,9 +22,14 @@ from llm_knowledge_extractor import (
 )
 
 from utils.visualization import visualize_graph
+from utils.io import save_graph
 
 import json
 import glob
+
+
+GRAPH_OUTPUT_FILE = "backend/graph/data/latest_graph.pkl"
+HTML_OUTPUT_FILE = "graph.html"
 
 # with open(
 
@@ -115,7 +120,9 @@ def update_KG_node(state):
             relation=relation["relation"],
             effect=relation.get("effect"),
             strength=relation.get("strength", 0.7),
-            confidence=relation.get("confidence", 0.8),
+            source_news=news_data["news_id"],
+            published_at=news_data.get("published_at")
+            # confidence=relation.get("confidence", 0.8),
         )
     for idx, claim in enumerate(claims):
 
@@ -237,4 +244,6 @@ for file_path in news_files:
     G = result["graph"]
 
 print("All news processed.")
-visualize_graph(G)
+save_graph(G, GRAPH_OUTPUT_FILE)
+print(f"Graph saved to {GRAPH_OUTPUT_FILE}")
+visualize_graph(G, output_file=HTML_OUTPUT_FILE)
