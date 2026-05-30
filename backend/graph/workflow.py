@@ -1,33 +1,40 @@
 from langgraph.graph import StateGraph
 from langgraph.graph import END
 
-from graph_builder import build_base_graph
+from backend.graph.graph_builder import build_base_graph
+from backend.graph.news_ingestion import add_news_node
+from backend.graph.graph_updater import update_relation
+from backend.graph.claim_handler import add_claim_node
+from backend.graph.llm_knowledge_extractor import extract_knowledge_from_llm
+from backend.graph.utils.visualization import visualize_graph
+from backend.graph.utils.io import save_graph
 
-from news_ingestion import (
+from backend.graph.news_ingestion import (
     add_news_node,
     link_news_entities
 )
 
-from graph_updater import (
+from backend.graph.graph_updater import (
     update_relation
 )
 
-from claim_handler import (
+from backend.graph.claim_handler import (
     add_claim_node,
     verify_claim
 )
 
-from llm_knowledge_extractor import (
+from backend.graph.llm_knowledge_extractor import (
     extract_knowledge_from_llm
 )
 
-from utils.visualization import visualize_graph
-from utils.io import save_graph
 
 import json
 import glob
+from pathlib import Path
 
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+NEWS_INPUT_DIR = PROJECT_ROOT / "data" / "processed_news_backup"
 GRAPH_OUTPUT_FILE = "backend/graph/data/latest_graph.pkl"
 HTML_OUTPUT_FILE = "graph.html"
 
@@ -209,41 +216,70 @@ workflow.add_edge(
 app = workflow.compile()
 
 
+def run_news_pipeline():
+
+    G = build_base_graph()
+
+    news_files = glob.glob(str(NEWS_INPUT_DIR / "*.json"))
+
+    for file_path in news_files:
+
+        with open(file_path, "r", encoding="utf-8") as f:
+            news_data = json.load(f)
+
+        result = app.invoke({
+            "graph": G,
+            "news_data": news_data
+        })
+
+        G = result["graph"]
+
+    save_graph(G, GRAPH_OUTPUT_FILE)
+    visualize_graph(G, output_file=HTML_OUTPUT_FILE)
+
+    return {
+        "nodes": len(G.nodes),
+        "edges": len(G.edges),
+        "graph_file": GRAPH_OUTPUT_FILE
+    }
+
+if __name__ == "__main__":
+
+    result = run_news_pipeline()
+
+    print(result)
 
 
-G = build_base_graph()
 
-news_files = glob.glob(
+# G = build_base_graph()
 
-    "/Users/jangbinlee/Desktop/Projects/Veri-RAG/data/processed_news_backup/*.json"
+# news_files = glob.glob(str(NEWS_INPUT_DIR / "*.json"))
 
-)
+# for file_path in news_files:
 
-for file_path in news_files:
+#     with open(
 
-    with open(
+#         file_path,
 
-        file_path,
+#         "r",
 
-        "r",
+#         encoding="utf-8"
 
-        encoding="utf-8"
+#     ) as f:
 
-    ) as f:
+#         news_data = json.load(f)
 
-        news_data = json.load(f)
+#     result = app.invoke({
 
-    result = app.invoke({
+#         "graph": G,
 
-        "graph": G,
+#         "news_data": news_data
 
-        "news_data": news_data
+#     })
 
-    })
+#     G = result["graph"]
 
-    G = result["graph"]
-
-print("All news processed.")
-save_graph(G, GRAPH_OUTPUT_FILE)
-print(f"Graph saved to {GRAPH_OUTPUT_FILE}")
-visualize_graph(G, output_file=HTML_OUTPUT_FILE)
+# print("All news processed.")
+# save_graph(G, GRAPH_OUTPUT_FILE)
+# print(f"Graph saved to {GRAPH_OUTPUT_FILE}")
+# visualize_graph(G, output_file=HTML_OUTPUT_FILE)

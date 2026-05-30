@@ -1,0 +1,4 @@
+langgraph==1.2.0
+networkx==3.6.1
+openai==2.37.0
+python-dotenv==1.2.2

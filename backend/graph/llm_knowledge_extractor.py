@@ -1,28 +1,10 @@
 import json
-from google import genai
 from openai import OpenAI
 import os
 import re
 import hashlib
 from dotenv import load_dotenv
 from data.ontology import nodes
-
-
-## sample news data
-with open(
-
-    "data/processed_news_backup/news_20260519_0001_result.json",
-    "r",
-    encoding="utf-8"
-
-) as f:
-
-    news_data = json.load(f)
-
-# =========================================================
-# Gemini Client
-# =========================================================
-
 
 
 load_dotenv()
@@ -838,6 +820,17 @@ def extract_knowledge_from_llm(content):
 
 
 if __name__ == "__main__":
+
+    with open(
+
+        "data/processed_news_backup/news_20260519_0001_result.json",
+        "r",
+        encoding="utf-8"
+
+    ) as f:
+
+        news_data = json.load(f)
+
     print(news_data["content"])
     result = extract_knowledge_from_llm(news_data["content"])
 
