@@ -5,9 +5,7 @@ src/graph/graph_builder.py
 import networkx as nx
 
 from datetime import datetime
-
 from backend.graph.data.ontology import nodes
-from data.ontology import nodes
 from backend.graph.data.base_relations import links
 
 

@@ -4,7 +4,7 @@ import os
 import re
 import hashlib
 from dotenv import load_dotenv
-from data.ontology import nodes
+from backend.graph.data.ontology import nodes
 
 
 load_dotenv()
