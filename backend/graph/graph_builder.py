@@ -6,8 +6,9 @@ import networkx as nx
 
 from datetime import datetime
 
+from backend.graph.data.ontology import nodes
 from data.ontology import nodes
-from data.base_relations import links
+from backend.graph.data.base_relations import links
 
 
 LEGACY_ID_MAP = {
