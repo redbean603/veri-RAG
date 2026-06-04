@@ -10,7 +10,8 @@ from backend.graph.data.ontology import nodes
 load_dotenv()
 
 client = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY")
+    api_key=os.getenv("LUXIA_API_KEY"),
+    base_url="https://<luxia-api-endpoint>/v1"
 )
 
 
