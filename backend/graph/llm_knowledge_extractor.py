@@ -97,444 +97,580 @@ ENTITY_TYPE_TO_PREFIX = {
     "EconomicAgent": "economicagent",
 }
 
-
 SYSTEM_PROMPT = """
 You are an economic knowledge graph extractor.
 
-Your task is to extract:
-
-1. Economic claims
-2. Economic entities grounded in those claims
-3. Economic relations grounded in those claims
-
 Return ONLY valid JSON.
 
-Do NOT include markdown.
-Do NOT explain anything.
-Do NOT generate text outside JSON.
+Extract:
 
+1. claims
+2. entities
+3. relations
 
-# =========================================================
-# EXTRACTION PRINCIPLES
-# =========================================================
+Follow this workflow:
 
-- Extract claims FIRST.
-- Then extract entities from the selected claims.
-- Then extract relations only from the selected claims.
-- Extract ONLY information explicitly supported by the article.
-- Do NOT infer speculative macroeconomic relations.
-- Do NOT hallucinate causal structure.
-- Prefer precision over recall.
-- If uncertain, omit the relation/entity.
-- Prefer event/behavior relationships over static affiliation.
-- Do NOT extract static affiliation or ownership relations
-  unless the article's main economic claim is about that affiliation.
+Step 1.
+Extract 1-4 important economic claims.
 
+Step 2.
+Extract entities appearing in those claims.
 
-# =========================================================
-# ENTITY NORMALIZATION RULES
-# =========================================================
+Step 3.
+Extract relations only if explicitly stated.
 
-- Normalize entity names consistently.
-- Use official Korean economic entity names for "name".
-- IDs must be deterministic and stable.
-- IDs must NEVER be random.
-- Reuse existing ontology IDs whenever possible.
-- Reuse an existing ontology ID ONLY when the entity name
-  refers to the exact same real-world entity.
-- If the entity name does not match the existing ontology entity,
-  create a new canonical ID instead of reusing a similar-looking ID.
-- If two entities refer to the same real-world entity,
-  reuse the same canonical ID.
-- Do NOT create duplicate entities.
+Do NOT infer.
 
-
-# =========================================================
-# ENTITY ID FORMAT
-# =========================================================
-
-ID rules:
-
-- lowercase only
-- snake_case only
-- English canonical names only
-- no spaces
-- no Korean in IDs
-- deterministic and stable
-
-Examples:
-
-- company:samsung_electronics
-- company:sk_hynix
-- industry:semiconductor
-- organization:bank_of_korea
-- asset:usdkrw
-- person:lee_jaeyong
-
-
-# =========================================================
-# EXISTING ONTOLOGY IDS
-# =========================================================
-
-Use these IDs EXACTLY when matching entities appear.
-
-
-## INDUSTRY
-
-- industry:semiconductor
-- industry:battery
-- industry:auto
-- industry:finance
-- industry:biohealth
-- industry:shipbuilding
-- industry:steel_material
-- industry:it_platform
-- industry:construction_realestate
-- industry:energy
-
-
-## COMPANY
-
-- company:samsung_electronics
-- company:sk_hynix
-- company:hyundai_motor
-- company:kia
-- company:lg_energy_solution
-- company:posco_holdings
-- company:kakao
-- company:naver
-- company:celltrion
-- company:hanwha_aerospace
-- company:kb_bank
-- company:shinhan_bank
-- company:kakaobank
-- company:toss
-- company:krafton
-- company:hd_hyundai_heavy
-
-
-## PERSON
-
-- person:lee_jaeyong
-- person:choi_taewon
-- person:chung_euisun
-- person:lee_haejin
-- person:rhee_changyong
-- person:choi_sangmok
-- person:kim_byunghwan
-
-
-## ORGANIZATION
-
-- organization:bank_of_korea
-- organization:moef
-- organization:fsc
-- organization:ftc
-- organization:krx
-- organization:fss
-- organization:kdi
-- organization:federal_reserve
-- organization:imf
-- organization:kcci
-- organization:fki
-
-
-## ASSET
-
-- asset:kospi
-- asset:usdkrw
-- asset:treasury_3y
-- asset:cofix
-- asset:dubai_oil
-- asset:dram_spot_price
-- asset:lithium_price
-
-
-# =========================================================
-# VALID ENTITY TYPES
-# =========================================================
-
-VALID_ENTITY_TYPES = [
-
-    "Company",
-    "Policy",
-    "Event",
-    "Industry",
-    "Asset",
-    "Person",
-    "Organization",
-    "EconomicAgent"
-
-]
-
-
-# =========================================================
-# ENTITY TYPE RULES
-# =========================================================
-
-Use "Company" for:
-
-- commercial corporations
-- banks
-- listed firms
-- private firms
-
-
-Use "Organization" ONLY for:
-
-- governments
-- regulators
-- public institutions
-- associations
-- NGOs
-- international organizations
-
-
-Use "Asset" for:
-
-- stock index
-- exchange rate
-- interest rate
-- commodity price
-- economic indicators
-
-
-Use "EconomicAgent" for:
-
-- foreign investors
-- institutional investors
-- retail investors
-- market participants
-- consumers
-- customers
-- labor unions
-- workers
-- farmers
-
-
-# =========================================================
-# ENTITY FILTERING RULES
-# =========================================================
-
-Extract ONLY:
-
-- economically meaningful
-- specific
-- named entities
-- entities directly relevant to the article's
-  economic narrative
-
-
-Do NOT extract:
-
-- vague concepts
-- generic economic terms
-- abstract nouns
-- unnamed groups unless they are explicit economic actors
-  in a selected claim
-- broad industries unless directly discussed
-- entities only weakly mentioned
-
-
-# =========================================================
-# CLAIM-FIRST EXTRACTION WORKFLOW
-# =========================================================
-
-Step 1. Select 1 to 4 core claims.
-
-Core claims should describe economically meaningful
-events, actions, conflicts, risks, reactions, or impacts.
-
-Step 2. Extract entities only if they participate
-in at least one selected claim.
-
-Step 3. Extract relations only if the selected claim
-states an action, impact, conflict, support,
-or measurement between two entities.
-
-Do NOT create relations merely because two entities
-are mentioned in the same sentence.
-
-For example:
-
-- "정용진 신세계그룹 회장이 사과했다"
-  is a claim.
-  It does NOT imply that Starbucks SUPPORTS 정용진.
-
-- "소비자들의 불매운동과 회원 탈퇴가 확산됐다"
-  should produce:
-  consumers AFFECTS Starbucks Korea
-  with effect "weakening".
-
-- "부적절한 이벤트로 스타벅스코리아가 비난을 받고 있다"
-  should produce:
-  consumers AFFECTS Starbucks Korea
-  with effect "weakening"
-  if consumers/public backlash is explicitly stated.
-
-
-# =========================================================
-# RELATION RULES
-# =========================================================
-
-Relations must follow causal direction.
-
-Cause/source entity
-    →
-Affected/target entity
-
-
-VALID_RELATION_TYPES = [
-
-    "AFFECTS",
-    "SUPPORTS",
-    "MEASURES"
-
-]
-
-
-# =========================================================
-# RELATION SEMANTICS
-# =========================================================
-
-AFFECTS:
-Directly impacts the target entity through
-explicitly stated economic influence.
-
-SUPPORTS:
-Provides direct support, cooperation,
-investment, policy assistance,
-or favorable influence explicitly stated
-in the article.
-
-MEASURES:
-Represents metric or indicator relationships.
-
-
-Relations represent semantic relation categories.
-
-Effects represent the CURRENT relation state,
-directional change, or intensity
-described in THIS article.
-
-The same relation between two entities
-may persist over time while its effect/state changes.
-
-Do NOT create new relation types
-for state changes.
-
-Use the same relation type
-and update the effect.
-
-
-# =========================================================
-# RELATION EXTRACTION CONSTRAINTS
-# =========================================================
-
-Extract ONLY relations explicitly supported
-by the article.
-
-Do NOT infer macroeconomic,
-financial, or causal relations
-unless directly stated.
+Do NOT use external knowledge.
 
 Do NOT create speculative relations.
 
-Do NOT create relations from general world knowledge.
+If uncertain, omit.
 
-If the article merely mentions two entities together,
-do NOT assume a relation exists.
+---
 
-
-# =========================================================
-# EFFECT RULES
-# =========================================================
-
-VALID_EFFECT_VALUES = [
-
-    "active",
-    "strengthening",
-    "weakening",
-    "inactive",
-    "neutral"
-
-]
-
-
-Effects describe:
-
-- current relation state
-- directional change
-- relation intensity
-
-Effects do NOT represent sentiment.
-
-
-Examples:
-
-- 협력 확대
-    → strengthening
-
-- 공급 축소
-    → weakening
-
-- 계약 종료
-    → inactive
-
-- 협력 유지
-    → active
-
-
-# =========================================================
-# CLAIM RULES
-# =========================================================
-
-Claims are textual evidence.
-
-Claims should summarize important
-economic statements from the article.
-
-Claims are NOT entities.
-
-Keep claims concise and factual.
-
-Claim confidence reflects extraction certainty,
-NOT factual truth.
-
-Claim confidence must be between 0 and 1.
-
-
-# =========================================================
-# OUTPUT FORMAT
-# =========================================================
+Entity schema:
 
 {
-    "entities": [
-        {
-            "id": "...",
-            "type": "...",
-            "name": "..."
-        }
-    ],
-
-    "relations": [
-        {
-            "source": "...",
-            "target": "...",
-            "relation": "...",
-            "effect": "..."
-        }
-    ],
-
-    "claims": [
-        {
-            "claim": "...",
-            "confidence": 0.0
-        }
-    ]
+    "type": "...",
+    "name": "..."
 }
 
+DO NOT generate entity IDs.
+
+Entity types:
+
+- Company
+- Policy
+- Event
+- Industry
+- Asset
+- Person
+- Organization
+- EconomicAgent
+
+Use:
+
+EconomicAgent:
+foreign investors,
+institutional investors,
+retail investors,
+consumers,
+workers,
+labor unions,
+farmers
+
+Organization:
+government,
+regulators,
+public institutions,
+associations,
+international organizations
+
+Company:
+listed firms,
+private firms,
+banks
+
+Asset:
+exchange rates,
+commodity prices,
+indices,
+interest rates
+
+---
+
+Relation schema:
+
+{
+    "source": "<entity name>",
+    "target": "<entity name>",
+    "relation": "...",
+    "effect": "..."
+}
+
+Valid relations:
+
+- AFFECTS
+- SUPPORTS
+- MEASURES
+
+Valid effects:
+
+- active
+- strengthening
+- weakening
+- inactive
+- neutral
+
+Relation source and target names MUST exactly match
+entity names in entities[].
+Do not use aliases.
+Do not use shortened forms.
+
+
+Relations must be explicitly supported by the article.
+
+Do not create relations merely because two entities appear together.
+
+---
+
+Claim schema:
+
+{
+    "claim": "...",
+    "confidence": 0.0
+}
+
+Confidence must be between 0 and 1.
+
+---
+
+Output format:
+
+{
+    "entities": [],
+    "relations": [],
+    "claims": []
+}
 """
+# SYSTEM_PROMPT = """
+# You are an economic knowledge graph extractor.
+
+# Your task is to extract:
+
+# 1. Economic claims
+# 2. Economic entities grounded in those claims
+# 3. Economic relations grounded in those claims
+
+# Return ONLY valid JSON.
+
+# Do NOT include markdown.
+# Do NOT explain anything.
+# Do NOT generate text outside JSON.
+
+
+# # =========================================================
+# # EXTRACTION PRINCIPLES
+# # =========================================================
+
+# - Extract claims FIRST.
+# - Then extract entities from the selected claims.
+# - Then extract relations only from the selected claims.
+# - Extract ONLY information explicitly supported by the article.
+# - Do NOT infer speculative macroeconomic relations.
+# - Do NOT hallucinate causal structure.
+# - Prefer precision over recall.
+# - If uncertain, omit the relation/entity.
+# - Prefer event/behavior relationships over static affiliation.
+# - Do NOT extract static affiliation or ownership relations
+#   unless the article's main economic claim is about that affiliation.
+
+
+# # =========================================================
+# # ENTITY NORMALIZATION RULES
+# # =========================================================
+
+# - Normalize entity names consistently.
+# - Use official Korean economic entity names for "name".
+# - IDs must be deterministic and stable.
+# - IDs must NEVER be random.
+# - Reuse existing ontology IDs whenever possible.
+# - Reuse an existing ontology ID ONLY when the entity name
+#   refers to the exact same real-world entity.
+# - If the entity name does not match the existing ontology entity,
+#   create a new canonical ID instead of reusing a similar-looking ID.
+# - If two entities refer to the same real-world entity,
+#   reuse the same canonical ID.
+# - Do NOT create duplicate entities.
+
+
+# # =========================================================
+# # ENTITY ID FORMAT
+# # =========================================================
+
+# ID rules:
+
+# - lowercase only
+# - snake_case only
+# - English canonical names only
+# - no spaces
+# - no Korean in IDs
+# - deterministic and stable
+
+# Examples:
+
+# - company:samsung_electronics
+# - company:sk_hynix
+# - industry:semiconductor
+# - organization:bank_of_korea
+# - asset:usdkrw
+# - person:lee_jaeyong
+
+
+# # =========================================================
+# # EXISTING ONTOLOGY IDS
+# # =========================================================
+
+# Use these IDs EXACTLY when matching entities appear.
+
+
+# ## INDUSTRY
+
+# - industry:semiconductor
+# - industry:battery
+# - industry:auto
+# - industry:finance
+# - industry:biohealth
+# - industry:shipbuilding
+# - industry:steel_material
+# - industry:it_platform
+# - industry:construction_realestate
+# - industry:energy
+
+
+# ## COMPANY
+
+# - company:samsung_electronics
+# - company:sk_hynix
+# - company:hyundai_motor
+# - company:kia
+# - company:lg_energy_solution
+# - company:posco_holdings
+# - company:kakao
+# - company:naver
+# - company:celltrion
+# - company:hanwha_aerospace
+# - company:kb_bank
+# - company:shinhan_bank
+# - company:kakaobank
+# - company:toss
+# - company:krafton
+# - company:hd_hyundai_heavy
+
+
+# ## PERSON
+
+# - person:lee_jaeyong
+# - person:choi_taewon
+# - person:chung_euisun
+# - person:lee_haejin
+# - person:rhee_changyong
+# - person:choi_sangmok
+# - person:kim_byunghwan
+
+
+# ## ORGANIZATION
+
+# - organization:bank_of_korea
+# - organization:moef
+# - organization:fsc
+# - organization:ftc
+# - organization:krx
+# - organization:fss
+# - organization:kdi
+# - organization:federal_reserve
+# - organization:imf
+# - organization:kcci
+# - organization:fki
+
+
+# ## ASSET
+
+# - asset:kospi
+# - asset:usdkrw
+# - asset:treasury_3y
+# - asset:cofix
+# - asset:dubai_oil
+# - asset:dram_spot_price
+# - asset:lithium_price
+
+
+# # =========================================================
+# # VALID ENTITY TYPES
+# # =========================================================
+
+# VALID_ENTITY_TYPES = [
+
+#     "Company",
+#     "Policy",
+#     "Event",
+#     "Industry",
+#     "Asset",
+#     "Person",
+#     "Organization",
+#     "EconomicAgent"
+
+# ]
+
+
+# # =========================================================
+# # ENTITY TYPE RULES
+# # =========================================================
+
+# Use "Company" for:
+
+# - commercial corporations
+# - banks
+# - listed firms
+# - private firms
+
+
+# Use "Organization" ONLY for:
+
+# - governments
+# - regulators
+# - public institutions
+# - associations
+# - NGOs
+# - international organizations
+
+
+# Use "Asset" for:
+
+# - stock index
+# - exchange rate
+# - interest rate
+# - commodity price
+# - economic indicators
+
+
+# Use "EconomicAgent" for:
+
+# - foreign investors
+# - institutional investors
+# - retail investors
+# - market participants
+# - consumers
+# - customers
+# - labor unions
+# - workers
+# - farmers
+
+
+# # =========================================================
+# # ENTITY FILTERING RULES
+# # =========================================================
+
+# Extract ONLY:
+
+# - economically meaningful
+# - specific
+# - named entities
+# - entities directly relevant to the article's
+#   economic narrative
+
+
+# Do NOT extract:
+
+# - vague concepts
+# - generic economic terms
+# - abstract nouns
+# - unnamed groups unless they are explicit economic actors
+#   in a selected claim
+# - broad industries unless directly discussed
+# - entities only weakly mentioned
+
+
+# # =========================================================
+# # CLAIM-FIRST EXTRACTION WORKFLOW
+# # =========================================================
+
+# Step 1. Select 1 to 4 core claims.
+
+# Core claims should describe economically meaningful
+# events, actions, conflicts, risks, reactions, or impacts.
+
+# Step 2. Extract entities only if they participate
+# in at least one selected claim.
+
+# Step 3. Extract relations only if the selected claim
+# states an action, impact, conflict, support,
+# or measurement between two entities.
+
+# Do NOT create relations merely because two entities
+# are mentioned in the same sentence.
+
+# For example:
+
+# - "정용진 신세계그룹 회장이 사과했다"
+#   is a claim.
+#   It does NOT imply that Starbucks SUPPORTS 정용진.
+
+# - "소비자들의 불매운동과 회원 탈퇴가 확산됐다"
+#   should produce:
+#   consumers AFFECTS Starbucks Korea
+#   with effect "weakening".
+
+# - "부적절한 이벤트로 스타벅스코리아가 비난을 받고 있다"
+#   should produce:
+#   consumers AFFECTS Starbucks Korea
+#   with effect "weakening"
+#   if consumers/public backlash is explicitly stated.
+
+
+# # =========================================================
+# # RELATION RULES
+# # =========================================================
+
+# Relations must follow causal direction.
+
+# Cause/source entity
+#     →
+# Affected/target entity
+
+
+# VALID_RELATION_TYPES = [
+
+#     "AFFECTS",
+#     "SUPPORTS",
+#     "MEASURES"
+
+# ]
+
+
+# # =========================================================
+# # RELATION SEMANTICS
+# # =========================================================
+
+# AFFECTS:
+# Directly impacts the target entity through
+# explicitly stated economic influence.
+
+# SUPPORTS:
+# Provides direct support, cooperation,
+# investment, policy assistance,
+# or favorable influence explicitly stated
+# in the article.
+
+# MEASURES:
+# Represents metric or indicator relationships.
+
+
+# Relations represent semantic relation categories.
+
+# Effects represent the CURRENT relation state,
+# directional change, or intensity
+# described in THIS article.
+
+# The same relation between two entities
+# may persist over time while its effect/state changes.
+
+# Do NOT create new relation types
+# for state changes.
+
+# Use the same relation type
+# and update the effect.
+
+
+# # =========================================================
+# # RELATION EXTRACTION CONSTRAINTS
+# # =========================================================
+
+# Extract ONLY relations explicitly supported
+# by the article.
+
+# Do NOT infer macroeconomic,
+# financial, or causal relations
+# unless directly stated.
+
+# Do NOT create speculative relations.
+
+# Do NOT create relations from general world knowledge.
+
+# If the article merely mentions two entities together,
+# do NOT assume a relation exists.
+
+
+# # =========================================================
+# # EFFECT RULES
+# # =========================================================
+
+# VALID_EFFECT_VALUES = [
+
+#     "active",
+#     "strengthening",
+#     "weakening",
+#     "inactive",
+#     "neutral"
+
+# ]
+
+
+# Effects describe:
+
+# - current relation state
+# - directional change
+# - relation intensity
+
+# Effects do NOT represent sentiment.
+
+
+# Examples:
+
+# - 협력 확대
+#     → strengthening
+
+# - 공급 축소
+#     → weakening
+
+# - 계약 종료
+#     → inactive
+
+# - 협력 유지
+#     → active
+
+
+# # =========================================================
+# # CLAIM RULES
+# # =========================================================
+
+# Claims are textual evidence.
+
+# Claims should summarize important
+# economic statements from the article.
+
+# Claims are NOT entities.
+
+# Keep claims concise and factual.
+
+# Claim confidence reflects extraction certainty,
+# NOT factual truth.
+
+# Claim confidence must be between 0 and 1.
+
+
+# # =========================================================
+# # OUTPUT FORMAT
+# # =========================================================
+
+# {
+#     "entities": [
+#         {
+#             "id": "...",
+#             "type": "...",
+#             "name": "..."
+#         }
+#     ],
+
+#     "relations": [
+#         {
+#             "source": "...",
+#             "target": "...",
+#             "relation": "...",
+#             "effect": "..."
+#         }
+#     ],
+
+#     "claims": [
+#         {
+#             "claim": "...",
+#             "confidence": 0.0
+#         }
+#     ]
+# }
+
+# """
 
 def normalize_entity_id(entity_id):
 
@@ -671,35 +807,111 @@ def apply_canonical_entity_name(entity):
         entity["name"] = canonical_name
 
 
+# def normalize_extraction_result(result):
+
+#     id_remap = {}
+#     dropped_ids = set()
+#     normalized_entities = []
+#     seen_entity_ids = set()
+
+#     for entity in result.get("entities", []):
+
+#         if "id" not in entity:
+
+#             continue
+
+#         original_id = normalize_entity_id(entity["id"])
+
+#         canonical_id = canonicalize_entity(entity)
+
+#         entity["id"] = canonical_id
+
+#         if original_id != canonical_id:
+
+#             id_remap[original_id] = canonical_id
+
+#         apply_canonical_entity_name(entity)
+
+#         if should_drop_entity(entity):
+
+#             dropped_ids.add(canonical_id)
+#             dropped_ids.add(original_id)
+
+#             continue
+
+#         if canonical_id in seen_entity_ids:
+
+#             continue
+
+#         seen_entity_ids.add(canonical_id)
+
+#         normalized_entities.append(entity)
+
+#     result["entities"] = normalized_entities
+
+#     normalized_relations = []
+
+#     for relation in result.get("relations", []):
+
+#         if "source" in relation:
+
+#             source = normalize_entity_id(relation["source"])
+
+#             relation["source"] = id_remap.get(source, source)
+
+#         if "target" in relation:
+
+#             target = normalize_entity_id(relation["target"])
+
+#             relation["target"] = id_remap.get(target, target)
+
+#         if (
+#             relation.get("source") in dropped_ids
+#             or relation.get("target") in dropped_ids
+#             or not is_valid_entity_id(relation.get("source"))
+#             or not is_valid_entity_id(relation.get("target"))
+#         ):
+
+#             continue
+
+#         normalized_relations.append(relation)
+
+#     result["relations"] = normalized_relations
+
+#     return result
+
 def normalize_extraction_result(result):
 
     id_remap = {}
     dropped_ids = set()
+
     normalized_entities = []
     seen_entity_ids = set()
 
+    name_to_id = {}
+
+    # --------------------------------------------------
+    # Entity Normalization
+    # --------------------------------------------------
+
     for entity in result.get("entities", []):
 
-        if "id" not in entity:
-
+        if "type" not in entity:
             continue
 
-        original_id = normalize_entity_id(entity["id"])
+        if "name" not in entity:
+            continue
 
+        # canonical id 생성
         canonical_id = canonicalize_entity(entity)
 
         entity["id"] = canonical_id
-
-        if original_id != canonical_id:
-
-            id_remap[original_id] = canonical_id
 
         apply_canonical_entity_name(entity)
 
         if should_drop_entity(entity):
 
             dropped_ids.add(canonical_id)
-            dropped_ids.add(original_id)
 
             continue
 
@@ -711,31 +923,38 @@ def normalize_extraction_result(result):
 
         normalized_entities.append(entity)
 
+        name_to_id[entity["name"]] = canonical_id
+
     result["entities"] = normalized_entities
+
+    # --------------------------------------------------
+    # Relation Normalization
+    # --------------------------------------------------
 
     normalized_relations = []
 
     for relation in result.get("relations", []):
 
-        if "source" in relation:
+        source_name = relation.get("source")
+        target_name = relation.get("target")
 
-            source = normalize_entity_id(relation["source"])
+        if not source_name or not target_name:
+            continue
 
-            relation["source"] = id_remap.get(source, source)
+        source_id = name_to_id.get(source_name)
+        target_id = name_to_id.get(target_name)
 
-        if "target" in relation:
+        # relation이 존재하는 entity끼리만 연결
+        if not source_id or not target_id:
+            continue
 
-            target = normalize_entity_id(relation["target"])
-
-            relation["target"] = id_remap.get(target, target)
+        relation["source"] = source_id
+        relation["target"] = target_id
 
         if (
-            relation.get("source") in dropped_ids
-            or relation.get("target") in dropped_ids
-            or not is_valid_entity_id(relation.get("source"))
-            or not is_valid_entity_id(relation.get("target"))
+            source_id in dropped_ids
+            or target_id in dropped_ids
         ):
-
             continue
 
         normalized_relations.append(relation)
@@ -749,48 +968,119 @@ def normalize_extraction_result(result):
 # Extract Knowledge from News
 # =========================================================
 
+# def extract_knowledge_from_llm(content):
+#     # -------------------------------------------------
+#     # OpenAI API Call
+#     # -------------------------------------------------
+
+#     response = client.chat.completions.create(
+
+#         model="gpt-4o-mini",
+
+#         temperature=0,
+
+#         response_format={
+#             "type": "json_object"
+#         },
+
+#         messages=[
+
+#             {
+#                 "role": "system",
+#                 "content": SYSTEM_PROMPT
+#             },
+
+#             {
+#                 "role": "user",
+#                 "content": content
+#             }
+
+#         ]
+
+#     )
+
+#     raw_text = response.choices[0].message.content.strip()
+
+
+#     raw_text = raw_text.strip()
+
+#     # -------------------------------------------------
+#     # Parse JSON
+#     # -------------------------------------------------
+
+#     try:
+
+#         result = json.loads(raw_text)
+
+#     except json.JSONDecodeError:
+
+#         print(raw_text)
+
+#         raise ValueError("Invalid JSON response")
+    
+#     result = normalize_extraction_result(result)
+    
+    
+#     print(
+
+#         json.dumps(
+
+#             result,
+
+#             ensure_ascii=False,
+
+#             indent=2
+
+#             )   
+#         )      
+
+#     return result
+
+import os
+import json
+import requests
+
 def extract_knowledge_from_llm(content):
-    # -------------------------------------------------
-    # OpenAI API Call
-    # -------------------------------------------------
 
-    response = client.chat.completions.create(
-
-        model="gpt-4o-mini",
-
-        temperature=0,
-
-        response_format={
-            "type": "json_object"
+    response = requests.post(
+        "https://bridge.luxiacloud.com/luxia/v1/chat",
+        headers={
+            "apikey": os.getenv("LUXIA_API_KEY"),
+            "Content-Type": "application/json"
         },
-
-        messages=[
-
-            {
-                "role": "system",
-                "content": SYSTEM_PROMPT
-            },
-
-            {
-                "role": "user",
-                "content": content
-            }
-
-        ]
-
+        json={
+            "model": "gpt-4o",
+            # "model": "luxia3-llm-32b-0731",
+            "temperature": 0,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": SYSTEM_PROMPT
+                },
+                {
+                    "role": "user",
+                    "content": content
+                }
+            ]
+        },
+        timeout=120
     )
 
-    raw_text = response.choices[0].message.content.strip()
+    response.raise_for_status()
 
+    response_json = response.json()
 
-    raw_text = raw_text.strip()
+    # # 응답 구조 확인용
+    # print(json.dumps(response_json, ensure_ascii=False, indent=2))
 
-    # -------------------------------------------------
-    # Parse JSON
-    # -------------------------------------------------
+    raw_text = (
+        response_json["choices"][0]
+        ["message"]
+        ["content"]
+        .strip()
+    )
 
     try:
-
         result = json.loads(raw_text)
 
     except json.JSONDecodeError:
@@ -798,22 +1088,16 @@ def extract_knowledge_from_llm(content):
         print(raw_text)
 
         raise ValueError("Invalid JSON response")
-    
+
     result = normalize_extraction_result(result)
-    
-    
+
     print(
-
         json.dumps(
-
             result,
-
             ensure_ascii=False,
-
             indent=2
-
-            )   
-        )      
+        )
+    )
 
     return result
 
@@ -835,16 +1119,16 @@ if __name__ == "__main__":
     print(news_data["content"])
     result = extract_knowledge_from_llm(news_data["content"])
 
-    print(
+    # print(
 
-        json.dumps(
+    #     json.dumps(
 
-            result,
+    #         result,
 
-            ensure_ascii=False,
+    #         ensure_ascii=False,
 
-            indent=2
+    #         indent=2
 
-        )
+    #     )
 
-    )
+    # )
