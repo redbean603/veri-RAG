@@ -1,0 +1,4 @@
+query_id,query,news_id,relevance,relation
+q001,지주회사 주가 정책 모멘텀,news_20260519_0001,3,same_event
+q002,자사주 의무 소각 지주사,news_20260519_0001,2,background
+q003,외국인 순매수 지주회사 매수,news_20260519_0001,3,same_event
