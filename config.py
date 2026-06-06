@@ -8,8 +8,5 @@ TEXT_COLLECTION = "news_text_openai"
 IMAGE_COLLECTION = "news_image_clip"
 
 TEXT_EMBEDDING_MODEL = "text-embedding-3-small"
-CLIP_MODEL = "openai/clip-vit-base-patch32"
 
 JSON_FOLDER = Path("agent_json")
-IMAGE_FOLDER = Path("agent_images")
-

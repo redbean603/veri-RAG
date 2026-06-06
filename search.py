@@ -4,7 +4,7 @@ from typing import Any
 import chromadb
 
 from config import CHROMA_HOST, CHROMA_PORT, IMAGE_COLLECTION, TEXT_COLLECTION
-from embeddings import get_image_embedding, get_text_embedding
+from embeddings import get_text_embedding
 
 
 _chroma_client: chromadb.HttpClient | None = None
@@ -52,20 +52,6 @@ def vector_search(
 
     results = get_text_collection().query(
         **query_kwargs,
-    )
-    return _format_results(results, score_threshold=score_threshold)
-
-
-def image_search(
-    image_path: str | Path,
-    top_k: int = 3,
-    score_threshold: float | None = None,
-) -> list[dict[str, Any]]:
-    query_embedding = get_image_embedding(image_path)
-    results = get_image_collection().query(
-        query_embeddings=[query_embedding],
-        n_results=top_k,
-        include=["documents", "metadatas", "distances"],
     )
     return _format_results(results, score_threshold=score_threshold)
 

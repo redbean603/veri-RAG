@@ -2,20 +2,15 @@
 
 ## Project Structure & Module Organization
 
-This repository contains the Veri-RAG Vector DB component for text, image, and evidence retrieval over Chroma.
+This repository contains the Veri-RAG Vector DB component for Agent-provided text vectors, optional image vectors, and evidence retrieval over Chroma.
 
 - `config.py`: Chroma host, collection names, model names, and data paths.
-- `embeddings.py`: OpenAI text embeddings and legacy CLIP image-file embeddings.
-- `search.py`: Agent-facing search functions: `agent_evidence_search()`, `vector_search()`, `image_search()`, and `evidence_search()`.
+- `embeddings.py`: OpenAI text embedding fallback.
+- `search.py`: Agent-facing search functions: `agent_evidence_search()`, `vector_search()`, and `evidence_search()`.
 - `ingest.py`: Text/image-vector ingestion, Agent JSON upsert helpers, duplicate checks, metadata cleanup, and Chroma insert logic.
 - `hybrid_search.py`: Candidate retrieval, keyword matching, reciprocal-rank fusion, and rerank orchestration.
 - `reranker.py`: Optional local `FlagEmbedding` reranker with vector-score fallback behavior.
-- `eval_retrieval.py`: Retrieval smoke evaluation over labeled query/news pairs.
-- `main.py`: Legacy local smoke-run entry point for image ingestion and sample image search.
-- `eval/retrieval_labels.csv`: Lightweight retrieval labels for `Recall@K`, `MRR@K`, and `nDCG@K`.
 - `agent_json/`: Current Agent-provided JSON records named like `naver_20260526080123_007_result.json`.
-
-Legacy `processed_news_backup/` and `raw_news_backup/` contents are outdated fixtures. Do not use them as the current data source.
 
 There is currently no dedicated `tests/` directory.
 
@@ -33,17 +28,11 @@ Install the optional reranker dependency only when local reranking is needed:
 pip install FlagEmbedding
 ```
 
-Run the legacy local image ingestion/search smoke test only when image file fixtures are available:
-
-```bash
-python main.py
-```
-
 Compile-check the Python modules:
 
 ```bash
-python -m py_compile config.py embeddings.py search.py ingest.py main.py
-python -m py_compile reranker.py hybrid_search.py eval_retrieval.py
+python -m py_compile config.py embeddings.py search.py ingest.py
+python -m py_compile reranker.py hybrid_search.py
 ```
 
 Call Agent-facing search directly:
@@ -52,13 +41,6 @@ Call Agent-facing search directly:
 python -c "from search import vector_search; print(vector_search('holding company stock price'))"
 python -c "from search import evidence_search; print(evidence_search('holding company stock price', query_vector=[0.0]*1536, candidate_news_ids=['naver_20260526080123_007'], candidate_k=5, final_k=2, use_reranker=False))"
 python -c "from search import agent_evidence_search; print(agent_evidence_search(query='holding company stock price', query_vector=[0.0]*1536, candidate_news_ids=[], final_k=2, use_reranker=False))"
-```
-
-Run retrieval smoke evaluation:
-
-```bash
-python eval_retrieval.py --mode vector --k 5
-python eval_retrieval.py --mode rerank --k 5
 ```
 
 ## Coding Style & Naming Conventions
@@ -91,7 +73,7 @@ Incoming Agent JSON records should include `text_vector` and may include `image_
 
 `text_vector` is required and stored directly. `image_vector` is optional; when present, it is upserted into the image collection with the same `news_id`, and when absent image upsert is skipped. The Agent does not send image files. If Agent code passes `query_vector`, text retrieval does not need an OpenAI API key. `query_vector` and `text_vector` must come from the same embedding model and have the same dimension.
 
-`vector_search()` and `image_search()` return formatted dictionaries with `news_id`, metadata, `content`, `summary`, cosine-derived `score`, and raw `distance`.
+`vector_search()` returns formatted dictionaries with `news_id`, metadata, `content`, `summary`, cosine-derived `score`, and raw `distance`.
 
 `evidence_search()` delegates to `hybrid_search.retrieve_and_rerank()`. It accepts optional graph-selected `candidate_news_ids`, retrieves a larger vector candidate set within that candidate set, runs keyword matching over current Agent JSON summaries in `agent_json/`, fuses candidates with RRF, and optionally reranks with `LocalReranker`.
 
@@ -104,12 +86,11 @@ When `FlagEmbedding` or the reranker model is unavailable, the reranker must ret
 No formal test framework is configured yet. For now, validate changes with:
 
 ```bash
-python -m py_compile config.py embeddings.py search.py ingest.py main.py
-python -m py_compile reranker.py hybrid_search.py eval_retrieval.py
-python eval_retrieval.py --mode vector --k 5
+python -m py_compile config.py embeddings.py search.py ingest.py
+python -m py_compile reranker.py hybrid_search.py
 ```
 
-Run `python main.py` only when Chroma and current image/model dependencies are available. Mock OpenAI, Chroma, CLIP, and reranker calls when adding unit tests.
+Mock OpenAI, Chroma, and reranker calls when adding unit tests.
 
 When adding tests, prefer `pytest` and place files under `tests/` with names like `test_search.py`, `test_ingest.py`, or `test_reranker.py`. Use the EC2 or remote Chroma server only for explicit integration checks.
 
@@ -129,4 +110,4 @@ Pull requests should include:
 
 Keep API keys in `.env`; do not hard-code or commit secrets. The Chroma server is configured in `config.py` as `100.55.254.41:8000`. If changing hosts, ports, collection names, model names, or data paths, update `config.py`, `README.md`, and this file together.
 
-Be careful with collection resets. `load_text_collection(reset=True)` and `load_image_collection(reset=True)` delete and recreate the corresponding Chroma collection.
+Be careful with collection resets. `load_text_collection(reset=True)` deletes and recreates the text Chroma collection.

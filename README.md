@@ -1,41 +1,36 @@
 # Veri-RAG Vector DB
 
-Vector retrieval component for Veri-RAG. This repository stores news text and image embeddings in Chroma and exposes Python search functions for Agent-side evidence retrieval. The primary Agent integration path accepts incoming JSON records, graph-selected candidate `news_id` values, `query`, and optional `query_vector`, then returns final selected `news_id` values with ranking evidence.
+Vector retrieval component for Veri-RAG. This repository stores Agent-provided text and optional image vectors in Chroma and exposes Python search functions for Agent-side evidence retrieval. The primary Agent integration path accepts incoming JSON records, graph-selected candidate `news_id` values, `query`, and optional `query_vector`, then returns final selected `news_id` values with ranking evidence.
 
 ## Current Status
 
 - Chroma server: `100.55.254.41:8000`
 - Text collection: `news_text_openai`
 - Image collection: `news_image_clip`
-- Text embedding model: externally provided `text_vector`; OpenAI `text-embedding-3-small` fallback when vectors are omitted
-- Image embedding model: optional externally provided `image_vector`; CLIP file embedding is legacy fallback for direct image search
+- Text embedding model: required externally provided `text_vector`; OpenAI `text-embedding-3-small` only as query fallback when `query_vector` is omitted
+- Image embedding model: optional externally provided `image_vector`
 - Chroma distance space: cosine
 - Local reranker: `BAAI/bge-reranker-v2-m3` through optional `FlagEmbedding`
 - Data paths:
   - Agent JSON records: `agent_json/`
-  - Retrieval labels: `eval/retrieval_labels.csv`
 
 ## Project Structure
 
 ```text
 veri-rag-vectordb/
 |-- config.py                 # Chroma host, collections, model names, and data paths
-|-- embeddings.py             # OpenAI text embeddings and legacy CLIP image-file embeddings
-|-- search.py                 # Agent-facing agent_evidence_search(), vector_search(), image_search(), evidence_search()
+|-- embeddings.py             # OpenAI text embedding fallback
+|-- search.py                 # Agent-facing agent_evidence_search(), vector_search(), evidence_search()
 |-- ingest.py                 # Text/image-vector ingestion, Agent JSON upsert helpers, metadata cleanup
 |-- hybrid_search.py          # Candidate retrieval, keyword matching, fusion, reranking
 |-- reranker.py               # Optional local FlagEmbedding reranker with fallback behavior
-|-- eval_retrieval.py         # Retrieval smoke evaluation metrics
-|-- main.py                   # Legacy local image ingestion and sample image-search smoke run
 |-- AGENTS.md                 # Contributor and agent instructions
-|-- eval/
-|   `-- retrieval_labels.csv  # Query/news relevance labels for smoke evaluation
 `-- agent_json/               # Current Agent-provided JSON records
 ```
 
 ## Data Convention
 
-Current retrieval uses only Agent-provided JSON records in the `naver_20260526080123_007_result.json` shape. Legacy `processed_news_backup/` and `raw_news_backup/` contents are outdated fixtures and are not the current data source.
+Current retrieval uses only Agent-provided JSON records in the `naver_20260526080123_007_result.json` shape.
 
 Agent JSON records are stored under `agent_json/` when `persist_json=True` and should include a stable `news_id`.
 
@@ -50,7 +45,7 @@ Agent JSON records are stored under `agent_json/` when `persist_json=True` and s
 
 Optional metadata fields are preserved when present: `title`, `published_at`, `source`, `url`, `topic`, `entities`, `claim_type`, `source_type`, `modality`, and `event_id`.
 
-If `text_vector` is present, `load_text_collection()` stores that vector directly instead of creating a new OpenAI embedding. If Agent code also passes `query_vector` to search, VectorDB retrieval does not need an OpenAI API key for text embeddings. The `query_vector` model and dimension must match `text_vector`.
+`load_text_collection()` and Agent upsert require `text_vector` and store that vector directly. If Agent code also passes `query_vector` to search, VectorDB retrieval does not need an OpenAI API key for text embeddings. The `query_vector` model and dimension must match `text_vector`.
 
 `text_vector` is required for the current Agent JSON path. `image_vector` is optional. If present, it is upserted into the image collection with the same `news_id`; if absent, image upsert is skipped. The Agent does not send image files.
 
@@ -68,27 +63,20 @@ Install the optional local reranker dependency when reranking is needed:
 pip install FlagEmbedding
 ```
 
-Create a `.env` file with the OpenAI API key only if text records or queries arrive without precomputed vectors:
+Create a `.env` file with the OpenAI API key only if search queries arrive without `query_vector`:
 
 ```env
 OPENAI_API_KEY=sk-proj-...
 ```
 
-If every incoming text record has `text_vector` and Agent calls include `query_vector`, text ingestion and text retrieval do not call OpenAI.
+If Agent calls include `query_vector`, text ingestion and text retrieval do not call OpenAI.
 
 ## Ingestion
 
-Run the legacy local smoke script only when image file fixtures are available:
-
-```bash
-python main.py
-```
-
-Load text and image collections directly when needed:
+Load text records directly when needed:
 
 ```bash
 python -c "from ingest import load_text_collection; print(load_text_collection(reset=False))"
-python -c "from ingest import load_image_collection; print(load_image_collection(reset=False))"
 ```
 
 Upsert Agent-provided JSON files directly:
@@ -104,7 +92,7 @@ Set `reset=True` only when you intentionally want to delete and rebuild the corr
 Use `search.py` from Agent code. For end-to-end Agent integration, call `agent_evidence_search()`.
 
 ```python
-from search import agent_evidence_search, evidence_search, image_search, vector_search
+from search import agent_evidence_search, evidence_search, vector_search
 
 agent_results = agent_evidence_search(
     query="holding company stock price policy momentum",
@@ -146,18 +134,12 @@ agent_results = agent_evidence_search(
 Lower-level search functions remain available:
 
 ```python
-from search import evidence_search, image_search, vector_search
+from search import evidence_search, vector_search
 
 text_results = vector_search(
     query="holding company stock price",
     top_k=3,
     score_threshold=0.3,
-)
-
-image_results = image_search(
-    image_path="path/to/local/image.jpg",
-    top_k=3,
-    score_threshold=0.5,
 )
 
 evidence_results = evidence_search(
@@ -232,7 +214,7 @@ Core result fields:
 
 `score_threshold` filters out results with `score < score_threshold`.
 
-`evidence_search()` keeps `vector_search()` and `image_search()` intact. It can accept graph-selected `candidate_news_ids` and a precomputed `query_vector`, restrict vector and keyword retrieval to that candidate set, fuse both candidate lists with RRF, and rerank locally. If `query_vector` is omitted, `vector_search()` creates a query embedding with OpenAI. If `candidate_news_ids=None`, it searches the full text collection. If `candidate_news_ids=[]`, it returns no results.
+`evidence_search()` keeps `vector_search()` intact. It can accept graph-selected `candidate_news_ids` and a precomputed `query_vector`, restrict vector and keyword retrieval to that candidate set, fuse both candidate lists with RRF, and rerank locally. If `query_vector` is omitted, `vector_search()` creates a query embedding with OpenAI. If `candidate_news_ids=None`, it searches the full text collection. If `candidate_news_ids=[]`, it returns no results.
 
 Current keyword search is lightweight token matching over `summary` first, with `title`/`content` fallback. It is not BM25 yet.
 
@@ -258,24 +240,16 @@ If `FlagEmbedding` or the reranker model is unavailable, retrieval falls back to
 Compile-check the active modules:
 
 ```bash
-python -m py_compile config.py embeddings.py search.py ingest.py main.py
-python -m py_compile reranker.py hybrid_search.py eval_retrieval.py
+python -m py_compile config.py embeddings.py search.py ingest.py
+python -m py_compile reranker.py hybrid_search.py
 ```
 
 Run direct search smoke checks:
 
 ```bash
 python -c "from search import vector_search; print(vector_search('holding company stock price', top_k=2, score_threshold=0.0))"
-python -c "from search import image_search; print(image_search('path/to/local/image.jpg', top_k=3, score_threshold=0.5))"
 python -c "from search import evidence_search; print(evidence_search('holding company stock price', candidate_k=5, final_k=2, use_reranker=False))"
 python -c "from search import agent_evidence_search; print(agent_evidence_search(query='holding company stock price', query_vector=[0.0]*1536, candidate_news_ids=[], final_k=2, use_reranker=False))"
-```
-
-Run retrieval evaluation against `eval/retrieval_labels.csv`:
-
-```bash
-python eval_retrieval.py --mode vector --k 5
-python eval_retrieval.py --mode rerank --k 5
 ```
 
 ## Notes for Pipeline Integration

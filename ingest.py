@@ -2,8 +2,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from config import IMAGE_COLLECTION, IMAGE_FOLDER, JSON_FOLDER, TEXT_COLLECTION
-from embeddings import get_image_embedding, get_text_embedding
+from config import JSON_FOLDER, TEXT_COLLECTION
 from search import get_chroma_client, get_image_collection, get_text_collection
 
 
@@ -29,7 +28,7 @@ def ingest_text_records(
             continue
 
         try:
-            embedding = _text_embedding(data, content)
+            embedding = _text_embedding(data)
             text_collection.upsert(
                 ids=[news_id],
                 embeddings=[embedding],
@@ -78,50 +77,6 @@ def ingest_text_json_files(
     return {**stats, **ingest_stats}
 
 
-def load_image_collection(reset: bool = False) -> dict[str, int]:
-    if reset:
-        _reset_image_collection()
-
-    image_collection = get_image_collection()
-    stats = {"inserted": 0, "skipped_existing": 0, "skipped_missing": 0, "failed": 0}
-
-    for json_path in sorted(JSON_FOLDER.glob("*_result.json")):
-        with json_path.open("r", encoding="utf-8") as file:
-            data = json.load(file)
-
-        news_id = data["news_id"]
-        image_path = IMAGE_FOLDER / json_path.name.replace("_result.json", ".jpg")
-
-        if _id_exists(image_collection, news_id):
-            stats["skipped_existing"] += 1
-            print(f"Skipped existing image embedding: {news_id}")
-            continue
-
-        if not image_path.exists():
-            stats["skipped_missing"] += 1
-            print(f"Skipped missing image: {news_id} path={image_path}")
-            continue
-
-        try:
-            embedding = get_image_embedding(image_path)
-            image_collection.add(
-                ids=[news_id],
-                embeddings=[embedding],
-                documents=[_display_title(data)],
-                metadatas=[_clean_metadata(data, image_path)],
-            )
-            stats["inserted"] += 1
-            print(f"Saved image embedding: {news_id} dims={len(embedding)}")
-        except Exception as exc:
-            stats["failed"] += 1
-            print(f"Image save error: {news_id} - {type(exc).__name__}: {exc}")
-
-    print(f"Text collection count: {get_text_collection().count()}")
-    print(f"Image collection count: {image_collection.count()}")
-    print(f"Image ingest stats: {stats}")
-    return stats
-
-
 def load_text_collection(reset: bool = False) -> dict[str, int]:
     if reset:
         _reset_text_collection()
@@ -147,13 +102,12 @@ def load_text_collection(reset: bool = False) -> dict[str, int]:
             continue
 
         try:
-            embedding = _text_embedding(data, content)
-            image_path = IMAGE_FOLDER / json_path.name.replace("_result.json", ".jpg")
+            embedding = _text_embedding(data)
             text_collection.add(
                 ids=[news_id],
                 embeddings=[embedding],
                 documents=[content],
-                metadatas=[_clean_metadata(data, image_path, modality="text")],
+                metadatas=[_clean_metadata(data, modality="text")],
             )
             stats["inserted"] += 1
             print(f"Saved text embedding: {news_id} dims={len(embedding)}")
@@ -163,15 +117,6 @@ def load_text_collection(reset: bool = False) -> dict[str, int]:
 
     print(f"Text collection count: {text_collection.count()}")
     return stats
-
-
-def _reset_image_collection():
-    client = get_chroma_client()
-    try:
-        client.delete_collection(IMAGE_COLLECTION)
-        print("Deleted existing image collection")
-    except Exception:
-        pass
 
 
 def _reset_text_collection():
@@ -225,10 +170,10 @@ def _display_title(data: dict[str, Any]) -> str:
     return str(data.get("title") or data.get("summary") or "")
 
 
-def _text_embedding(data: dict[str, Any], content: str) -> list[float]:
+def _text_embedding(data: dict[str, Any]) -> list[float]:
     vector = _optional_vector(data, "text_vector")
     if vector is None:
-        return get_text_embedding(content)
+        raise ValueError("text_vector is required")
     return vector
 
 

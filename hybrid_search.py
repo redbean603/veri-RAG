@@ -4,7 +4,7 @@ import json
 import re
 from typing import Any
 
-from config import IMAGE_FOLDER, JSON_FOLDER
+from config import JSON_FOLDER
 from reranker import LocalReranker
 from search import vector_search
 
@@ -72,7 +72,6 @@ def keyword_search(
         if score <= 0:
             continue
 
-        image_path = IMAGE_FOLDER / f"{news_id}.jpg"
         scored.append(
             {
                 "news_id": news_id,
@@ -80,7 +79,7 @@ def keyword_search(
                 "url": data.get("url", ""),
                 "published_at": data.get("published_at", ""),
                 "source": data.get("source", ""),
-                "image_path": str(image_path),
+                "image_path": "",
                 "content": content,
                 "summary": data.get("summary", ""),
                 "score": score,
