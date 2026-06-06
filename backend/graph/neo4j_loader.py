@@ -7,12 +7,19 @@ from neo4j import GraphDatabase
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(PROJECT_ROOT / ".env")
 
+print("PROJECT_ROOT =", PROJECT_ROOT)
+print("ENV EXISTS =", (PROJECT_ROOT / ".env").exists())
+
 class Neo4jLoader:
 
     def __init__(self, uri=None, user=None, password=None):
         uri = uri or os.getenv("NEO4J_URI")
         user = user or os.getenv("NEO4J_USERNAME") or os.getenv("NEO4J_USER")
         password = password or os.getenv("NEO4J_PASSWORD")
+
+        print("URI =", repr(uri))
+        print("USER =", repr(user))
+        print("PASSWORD =", repr(password))
 
         if not uri or not user or not password:
             raise ValueError(
