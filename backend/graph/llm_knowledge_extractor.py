@@ -5,9 +5,12 @@ import re
 import hashlib
 from dotenv import load_dotenv
 from backend.graph.data.ontology import nodes
+from pathlib import Path
 
 
-load_dotenv()
+# load_dotenv()
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+load_dotenv(PROJECT_ROOT / ".env")
 
 client = OpenAI(
     api_key=os.getenv("LUXIA_API_KEY"),
@@ -24,6 +27,41 @@ ONTOLOGY_ID_BY_NAME = {
     node.get("name"): node["id"]
     for node in nodes
     if node.get("name")
+}
+
+EXTRA_CANONICAL_ENTITIES = {
+    "asset:domestic_stock_market": {
+        "type": "Asset",
+        "name": "국내 증시",
+    },
+    "company:holding_companies": {
+        "type": "Company",
+        "name": "지주회사",
+    },
+    "policy:dividend_income_separate_taxation": {
+        "type": "Policy",
+        "name": "배당소득 분리과세",
+    },
+    "policy:mandatory_treasury_stock_cancellation": {
+        "type": "Policy",
+        "name": "자사주 의무 소각",
+    },
+    "policy:dual_listing_ban": {
+        "type": "Policy",
+        "name": "중복상장 금지",
+    },
+    "company:dl_enc": {
+        "type": "Company",
+        "name": "DL이앤씨",
+    },
+    "company:hyundai_engineering_construction": {
+        "type": "Company",
+        "name": "현대건설",
+    },
+    "event:apgujeong_district_5_reconstruction": {
+        "type": "Event",
+        "name": "압구정5구역 재건축",
+    },
 }
 
 KNOWN_ENTITY_NAME_TO_ID = {
@@ -43,9 +81,13 @@ KNOWN_ENTITY_NAME_TO_ID = {
     "노조": "economicagent:union",
     "외국인 투자자": "economicagent:foreign_investors",
     "외국인": "economicagent:foreign_investors",
+    "foreign investors": "economicagent:foreign_investors",
+    "Foreign investors": "economicagent:foreign_investors",
     "개인 투자자": "economicagent:retail_investors",
     "개인": "economicagent:retail_investors",
+    "retail investors": "economicagent:retail_investors",
     "농민": "economicagent:farmers",
+    "farmers": "economicagent:farmers",
     "원·달러 환율": "asset:usdkrw",
     "원/달러 환율": "asset:usdkrw",
     "원달러 환율": "asset:usdkrw",
@@ -55,6 +97,27 @@ KNOWN_ENTITY_NAME_TO_ID = {
     "Agriculture": "industry:agriculture",
     "양파 가격": "asset:onion_price",
     "Onion Price": "asset:onion_price",
+    "domestic stock market": "asset:domestic_stock_market",
+    "Domestic stock market": "asset:domestic_stock_market",
+    "국내증시": "asset:domestic_stock_market",
+    "holding companies": "company:holding_companies",
+    "Holding companies": "company:holding_companies",
+    "major holding companies": "company:holding_companies",
+    "Major holding companies": "company:holding_companies",
+    "주요 지주회사": "company:holding_companies",
+    "지주회사": "company:holding_companies",
+    "dividend tax policy": "policy:dividend_income_separate_taxation",
+    "dividend income separation tax": "policy:dividend_income_separate_taxation",
+    "배당소득 분리과세": "policy:dividend_income_separate_taxation",
+    "mandatory stock cancellation": "policy:mandatory_treasury_stock_cancellation",
+    "mandatory treasury stock cancellation": "policy:mandatory_treasury_stock_cancellation",
+    "자사주 의무 소각": "policy:mandatory_treasury_stock_cancellation",
+    "prohibition of dual listings": "policy:dual_listing_ban",
+    "ban on dual listings": "policy:dual_listing_ban",
+    "중복상장 금지": "policy:dual_listing_ban",
+    "DL이앤씨": "company:dl_enc",
+    "현대건설": "company:hyundai_engineering_construction",
+    "압구정5구역 재건축": "event:apgujeong_district_5_reconstruction",
 }
 
 CANONICAL_ENTITY_NAMES = {
@@ -76,12 +139,24 @@ CANONICAL_ENTITY_NAMES = {
     "asset:onion_price": "양파 가격",
 }
 
+CANONICAL_ENTITY_NAMES.update({
+    entity_id: entity["name"]
+    for entity_id, entity in EXTRA_CANONICAL_ENTITIES.items()
+})
+
+CANONICAL_ENTITY_TYPES = {
+    node["id"]: node.get("type")
+    for node in nodes
+}
+
+CANONICAL_ENTITY_TYPES.update({
+    entity_id: entity["type"]
+    for entity_id, entity in EXTRA_CANONICAL_ENTITIES.items()
+})
+
 GENERIC_ENTITY_NAMES = {
     "증시",
-    "국내 증시",
     "재건축",
-    "주요 지주회사",
-    "지주회사",
     "시장",
     "경제",
 }
@@ -95,6 +170,11 @@ ENTITY_TYPE_TO_PREFIX = {
     "Person": "person",
     "Organization": "organization",
     "EconomicAgent": "economicagent",
+}
+
+ID_PREFIX_TO_ENTITY_TYPE = {
+    prefix: entity_type
+    for entity_type, prefix in ENTITY_TYPE_TO_PREFIX.items()
 }
 
 SYSTEM_PROMPT = """
@@ -115,9 +195,16 @@ Extract 1-4 important economic claims.
 
 Step 2.
 Extract entities appearing in those claims.
+Include economically meaningful groups or instruments when they are direct
+participants in a selected claim, even if they are not proper nouns.
+Examples: holding companies, domestic stock market, foreign investors,
+retail investors, dividend tax policy, treasury yields, exchange rates.
 
 Step 3.
 Extract relations only if explicitly stated.
+Extract a relation when the article explicitly says one entity caused,
+supported, pressured, bought/sold, improved, weakened, measured, or changed
+another entity.
 
 Do NOT infer.
 
@@ -126,6 +213,9 @@ Do NOT use external knowledge.
 Do NOT create speculative relations.
 
 If uncertain, omit.
+But do not omit a relation when the article explicitly uses evidence such as
+"because", "as a result", "impact", "policy momentum", "buying/selling",
+"improved", "weakened", "rose", "fell", "supports", or "pressures".
 
 ---
 
@@ -137,6 +227,9 @@ Entity schema:
 }
 
 DO NOT generate entity IDs.
+For Korean articles, use Korean official/common entity names whenever possible.
+Do not translate Korean entity names into English unless the entity is normally
+known by an English name in Korea.
 
 Entity types:
 
@@ -212,6 +305,26 @@ Do not use shortened forms.
 Relations must be explicitly supported by the article.
 
 Do not create relations merely because two entities appear together.
+
+Relation direction:
+
+- Cause/action/source entity -> affected/target entity.
+- Buying or selling pressure: investor group -> asset/company/market.
+- Policy support or reform: policy/government -> affected company, industry,
+  asset, or economic agent.
+- Market indicators or prices: measured indicator -> affected asset/company
+  only if the article states the effect explicitly.
+
+Examples:
+
+- If foreign investors are buying holding company stocks:
+  foreign investors AFFECTS holding companies with effect "strengthening".
+- If dividend tax policy and treasury stock cancellation are described as
+  policy momentum for holding company value:
+  each policy SUPPORTS holding companies with effect "strengthening".
+- If consumer boycott and membership cancellation are spreading against a
+  company:
+  consumers AFFECTS the company with effect "weakening".
 
 ---
 
@@ -707,6 +820,31 @@ def normalize_entity_id(entity_id):
     return entity_id
 
 
+def normalize_alias_key(value):
+
+    if not value:
+
+        return ""
+
+    value = str(value).casefold()
+
+    value = re.sub(r"[\s·ㆍ/()\-_,.]+", "", value)
+
+    return value
+
+
+KNOWN_ENTITY_ALIAS_TO_ID = {
+    normalize_alias_key(name): entity_id
+    for name, entity_id in KNOWN_ENTITY_NAME_TO_ID.items()
+}
+
+ONTOLOGY_ID_BY_ALIAS = {
+    normalize_alias_key(node.get("name")): node["id"]
+    for node in nodes
+    if node.get("name")
+}
+
+
 def normalize_name(name):
 
     if not name:
@@ -753,8 +891,24 @@ def fallback_entity_id(entity_type, name):
 
     prefix = ENTITY_TYPE_TO_PREFIX.get(entity_type, "entity")
 
+    normalized_name = normalize_name(name)
+
+    if re.search(r"[a-zA-Z]", normalized_name):
+
+        slug = normalized_name.casefold()
+
+        slug = slug.replace("&", " and ")
+
+        slug = re.sub(r"[^a-z0-9]+", "_", slug)
+
+        slug = re.sub(r"_+", "_", slug).strip("_")
+
+        if slug:
+
+            return f"{prefix}:{slug}"
+
     digest = hashlib.sha1(
-        normalize_name(name).encode("utf-8")
+        normalized_name.encode("utf-8")
     ).hexdigest()[:10]
 
     return f"{prefix}:entity_{digest}"
@@ -768,6 +922,8 @@ def canonicalize_entity(entity):
 
     entity_type = entity.get("type")
 
+    entity_alias = normalize_alias_key(entity_name)
+
     if entity_name in ONTOLOGY_ID_BY_NAME:
 
         return ONTOLOGY_ID_BY_NAME[entity_name]
@@ -775,6 +931,21 @@ def canonicalize_entity(entity):
     if entity_name in KNOWN_ENTITY_NAME_TO_ID:
 
         return KNOWN_ENTITY_NAME_TO_ID[entity_name]
+
+    if entity_alias in ONTOLOGY_ID_BY_ALIAS:
+
+        return ONTOLOGY_ID_BY_ALIAS[entity_alias]
+
+    if entity_alias in KNOWN_ENTITY_ALIAS_TO_ID:
+
+        return KNOWN_ENTITY_ALIAS_TO_ID[entity_alias]
+
+    if not is_valid_entity_id(entity_id):
+
+        return fallback_entity_id(
+            entity_type,
+            entity_name or "unknown"
+        )
 
     ontology_entity = ONTOLOGY_BY_ID.get(entity_id)
 
@@ -805,6 +976,21 @@ def apply_canonical_entity_name(entity):
     if canonical_name:
 
         entity["name"] = canonical_name
+
+
+def apply_canonical_entity_type(entity):
+
+    canonical_type = CANONICAL_ENTITY_TYPES.get(entity.get("id"))
+
+    if not canonical_type and ":" in entity.get("id", ""):
+
+        prefix = entity["id"].split(":", 1)[0]
+
+        canonical_type = ID_PREFIX_TO_ENTITY_TYPE.get(prefix)
+
+    if canonical_type:
+
+        entity["type"] = canonical_type
 
 
 # def normalize_extraction_result(result):
@@ -882,7 +1068,6 @@ def apply_canonical_entity_name(entity):
 
 def normalize_extraction_result(result):
 
-    id_remap = {}
     dropped_ids = set()
 
     normalized_entities = []
@@ -902,12 +1087,18 @@ def normalize_extraction_result(result):
         if "name" not in entity:
             continue
 
+        original_name = entity.get("name")
+
+        original_id = normalize_entity_id(entity.get("id", ""))
+
         # canonical id 생성
         canonical_id = canonicalize_entity(entity)
 
         entity["id"] = canonical_id
 
         apply_canonical_entity_name(entity)
+
+        apply_canonical_entity_type(entity)
 
         if should_drop_entity(entity):
 
@@ -924,6 +1115,16 @@ def normalize_extraction_result(result):
         normalized_entities.append(entity)
 
         name_to_id[entity["name"]] = canonical_id
+        name_to_id[normalize_name(entity["name"])] = canonical_id
+
+        if original_name:
+
+            name_to_id[original_name] = canonical_id
+            name_to_id[normalize_name(original_name)] = canonical_id
+
+        if is_valid_entity_id(original_id):
+
+            name_to_id[original_id] = canonical_id
 
     result["entities"] = normalized_entities
 
@@ -941,11 +1142,33 @@ def normalize_extraction_result(result):
         if not source_name or not target_name:
             continue
 
-        source_id = name_to_id.get(source_name)
-        target_id = name_to_id.get(target_name)
+        source_id = (
+            name_to_id.get(source_name)
+            or name_to_id.get(normalize_name(source_name))
+            or (
+                normalize_entity_id(source_name)
+                if is_valid_entity_id(normalize_entity_id(source_name))
+                else None
+            )
+        )
+
+        target_id = (
+            name_to_id.get(target_name)
+            or name_to_id.get(normalize_name(target_name))
+            or (
+                normalize_entity_id(target_name)
+                if is_valid_entity_id(normalize_entity_id(target_name))
+                else None
+            )
+        )
 
         # relation이 존재하는 entity끼리만 연결
-        if not source_id or not target_id:
+        if (
+            not source_id
+            or not target_id
+            or source_id not in seen_entity_ids
+            or target_id not in seen_entity_ids
+        ):
             continue
 
         relation["source"] = source_id
@@ -1040,16 +1263,44 @@ import os
 import json
 import requests
 
+
+def parse_json_response(raw_text):
+
+    raw_text = raw_text.strip()
+
+    if raw_text.startswith("```"):
+
+        raw_text = re.sub(r"^```(?:json)?\s*", "", raw_text)
+        raw_text = re.sub(r"\s*```$", "", raw_text)
+
+    try:
+
+        return json.loads(raw_text)
+
+    except json.JSONDecodeError:
+
+        match = re.search(r"\{.*\}", raw_text, re.DOTALL)
+
+        if match:
+
+            return json.loads(match.group(0))
+
+        print(raw_text)
+
+        raise ValueError("Invalid JSON response")
+
+
 def extract_knowledge_from_llm(content):
 
     response = requests.post(
-        "https://bridge.luxiacloud.com/luxia/v1/chat",
+        # "https://bridge.luxiacloud.com/luxia/v1/chat",
+        "https://bridge.luxiacloud.com/llm/openai/chat/completions/gpt-4o-mini/create",
         headers={
             "apikey": os.getenv("LUXIA_API_KEY"),
             "Content-Type": "application/json"
         },
         json={
-            "model": "gpt-4o",
+            "model": "gpt-4o-mini-2024-07-18",
             # "model": "luxia3-llm-32b-0731",
             "temperature": 0,
             "messages": [
@@ -1066,6 +1317,11 @@ def extract_knowledge_from_llm(content):
         timeout=120
     )
 
+    if not response.ok:
+
+        print(response.status_code)
+        print(response.text)
+
     response.raise_for_status()
 
     response_json = response.json()
@@ -1080,14 +1336,7 @@ def extract_knowledge_from_llm(content):
         .strip()
     )
 
-    try:
-        result = json.loads(raw_text)
-
-    except json.JSONDecodeError:
-
-        print(raw_text)
-
-        raise ValueError("Invalid JSON response")
+    result = parse_json_response(raw_text)
 
     result = normalize_extraction_result(result)
 

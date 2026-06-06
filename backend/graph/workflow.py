@@ -8,6 +8,8 @@ from backend.graph.claim_handler import add_claim_node
 from backend.graph.llm_knowledge_extractor import extract_knowledge_from_llm
 from backend.graph.utils.visualization import visualize_graph
 from backend.graph.utils.io import save_graph
+from backend.graph.neo4j_loader import Neo4jLoader
+
 
 from backend.graph.news_ingestion import (
     add_news_node,
@@ -47,8 +49,6 @@ HTML_OUTPUT_FILE = "graph.html"
 # ) as f:
 
 #     news_data = json.load(f)
-
-
 
 
 def ingest_news_node(state):
@@ -237,10 +237,21 @@ def run_news_pipeline():
     save_graph(G, GRAPH_OUTPUT_FILE)
     visualize_graph(G, output_file=HTML_OUTPUT_FILE)
 
+    neo4j_status = "skipped"
+    try:
+        loader = Neo4jLoader()
+        loader.save_graph(G)
+        loader.close()
+        neo4j_status = "synced"
+    except Exception as e:
+        print(f"Neo4j sync failed: {e}")
+        neo4j_status = "failed"
+
     return {
         "nodes": len(G.nodes),
         "edges": len(G.edges),
-        "graph_file": GRAPH_OUTPUT_FILE
+        "graph_file": GRAPH_OUTPUT_FILE,
+        "neo4j_sync": neo4j_status
     }
 
 if __name__ == "__main__":
