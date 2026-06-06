@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-import json
 import re
 from typing import Any
 
-from config import JSON_FOLDER
 from reranker import LocalReranker
-from search import vector_search
+from search import get_text_collection, vector_search
 
 
 def retrieve_and_rerank(
@@ -57,7 +55,7 @@ def keyword_search(
 
     allowed_ids = set(candidate_news_ids) if candidate_news_ids is not None else None
     scored = []
-    for data in _iter_news_records():
+    for data in _iter_news_records(candidate_news_ids):
         news_id = str(data.get("news_id") or "")
         if not news_id:
             continue
@@ -97,8 +95,16 @@ def fuse_candidates(
     keyword_results: list[dict[str, Any]],
     method: str = "rrf",
 ) -> list[dict[str, Any]]:
+    if not vector_results and not keyword_results:
+        return []
+
     if not keyword_results:
-        return vector_results
+        merged = []
+        for rank, result in enumerate(vector_results, start=1):
+            item = dict(result)
+            item["fusion_score"] = _rrf_score(rank)
+            merged.append(item)
+        return merged
 
     merged: dict[str, dict[str, Any]] = {}
     for rank, result in enumerate(vector_results, start=1):
@@ -159,13 +165,26 @@ def _normalize_candidate_ids(candidate_news_ids: list[str] | None) -> list[str] 
     return [str(news_id) for news_id in dict.fromkeys(candidate_news_ids) if str(news_id)]
 
 
-def _iter_news_records():
-    for json_path in sorted(JSON_FOLDER.glob("*_result.json")):
-        try:
-            with json_path.open("r", encoding="utf-8") as file:
-                yield json.load(file)
-        except (OSError, json.JSONDecodeError):
-            continue
+def _iter_news_records(candidate_news_ids: list[str] | None = None):
+    query_kwargs: dict[str, Any] = {
+        "include": ["documents", "metadatas"],
+    }
+    if candidate_news_ids is not None:
+        if not candidate_news_ids:
+            return
+        query_kwargs["where"] = {"news_id": {"$in": candidate_news_ids}}
+
+    records = get_text_collection().get(**query_kwargs)
+    ids = records.get("ids", [])
+    documents = records.get("documents", [])
+    metadatas = records.get("metadatas", [])
+
+    for doc_id, document, metadata in zip(ids, documents, metadatas):
+        data = dict(metadata or {})
+        data["news_id"] = data.get("news_id") or doc_id
+        data["summary"] = data.get("summary") or document or ""
+        data["content"] = document or data.get("summary", "")
+        yield data
 
 
 def _display_title(data: dict[str, Any]) -> str:

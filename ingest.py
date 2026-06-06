@@ -9,7 +9,8 @@ from search import get_chroma_client, get_image_collection, get_text_collection
 def ingest_text_records(
     records: list[dict[str, Any]],
     persist_json: bool = True,
-) -> dict[str, int]:
+    expected_vector_dim: int | None = None,
+) -> dict[str, Any]:
     text_collection = get_text_collection()
     image_collection = get_image_collection()
     stats = {
@@ -18,40 +19,45 @@ def ingest_text_records(
         "skipped_empty": 0,
         "skipped_image_vector": 0,
         "failed": 0,
+        "invalid": 0,
+        "failed_news_ids": [],
+        "errors": [],
     }
 
     for data in records:
         news_id = str(data.get("news_id") or "")
-        content = _text_document(data)
-        if not news_id or not content:
-            stats["skipped_empty"] += 1
-            continue
-
         try:
-            embedding = _text_embedding(data)
+            record = validate_agent_record(data, expected_vector_dim=expected_vector_dim)
+            news_id = record["news_id"]
+            content = _text_document(record)
+            embedding = _text_embedding(record)
             text_collection.upsert(
                 ids=[news_id],
                 embeddings=[embedding],
                 documents=[content],
-                metadatas=[_clean_metadata(data, modality="text")],
+                metadatas=[_clean_metadata(record, modality="text")],
             )
-            image_vector = _optional_vector(data, "image_vector")
+            image_vector = _optional_vector(record, "image_vector")
             if image_vector is not None:
                 image_collection.upsert(
                     ids=[news_id],
                     embeddings=[image_vector],
-                    documents=[_display_title(data)],
-                    metadatas=[_clean_metadata(data, modality="image")],
+                    documents=[_display_title(record)],
+                    metadatas=[_clean_metadata(record, modality="image")],
                 )
                 stats["image_upserted"] += 1
             else:
                 stats["skipped_image_vector"] += 1
 
             if persist_json:
-                _persist_text_record(data)
+                _persist_text_record(record)
             stats["upserted"] += 1
+        except ValueError as exc:
+            stats["invalid"] += 1
+            _record_ingest_error(stats, news_id, exc)
         except Exception as exc:
             stats["failed"] += 1
+            _record_ingest_error(stats, news_id, exc)
             print(f"Text upsert error: {news_id or '<missing news_id>'} - {type(exc).__name__}: {exc}")
 
     return stats
@@ -60,9 +66,15 @@ def ingest_text_records(
 def ingest_text_json_files(
     json_files: list[str | Path],
     persist_json: bool = True,
-) -> dict[str, int]:
+    expected_vector_dim: int | None = None,
+) -> dict[str, Any]:
     records = []
-    stats = {"loaded": 0, "load_failed": 0}
+    stats = {
+        "loaded": 0,
+        "load_failed": 0,
+        "failed_news_ids": [],
+        "errors": [],
+    }
     for json_file in json_files:
         path = _resolve_json_path(json_file)
         try:
@@ -71,10 +83,46 @@ def ingest_text_json_files(
             stats["loaded"] += 1
         except (OSError, json.JSONDecodeError) as exc:
             stats["load_failed"] += 1
+            news_id = _news_id_from_json_path(path)
+            _record_ingest_error(stats, news_id, exc)
             print(f"JSON load error: {path} - {type(exc).__name__}: {exc}")
 
-    ingest_stats = ingest_text_records(records, persist_json=persist_json)
-    return {**stats, **ingest_stats}
+    ingest_stats = ingest_text_records(
+        records,
+        persist_json=persist_json,
+        expected_vector_dim=expected_vector_dim,
+    )
+    return {
+        **ingest_stats,
+        "loaded": stats["loaded"],
+        "load_failed": stats["load_failed"],
+        "failed_news_ids": stats["failed_news_ids"] + ingest_stats.get("failed_news_ids", []),
+        "errors": stats["errors"] + ingest_stats.get("errors", []),
+    }
+
+
+def validate_agent_record(
+    data: dict[str, Any],
+    expected_vector_dim: int | None = None,
+) -> dict[str, Any]:
+    news_id = str(data.get("news_id") or "").strip()
+    if not news_id:
+        raise ValueError("news_id is required")
+
+    summary = str(data.get("summary") or "").strip()
+    if not summary:
+        raise ValueError("summary is required")
+
+    text_vector = _required_vector(data, "text_vector", expected_dim=expected_vector_dim)
+    image_vector = _optional_vector(data, "image_vector")
+
+    record = dict(data)
+    record["news_id"] = news_id
+    record["summary"] = summary
+    record["text_vector"] = text_vector
+    if image_vector is not None:
+        record["image_vector"] = image_vector
+    return record
 
 
 def load_text_collection(reset: bool = False) -> dict[str, int]:
@@ -171,10 +219,7 @@ def _display_title(data: dict[str, Any]) -> str:
 
 
 def _text_embedding(data: dict[str, Any]) -> list[float]:
-    vector = _optional_vector(data, "text_vector")
-    if vector is None:
-        raise ValueError("text_vector is required")
-    return vector
+    return _required_vector(data, "text_vector")
 
 
 def _persist_text_record(data: dict[str, Any]) -> None:
@@ -203,10 +248,43 @@ def _resolve_json_path(json_file: str | Path) -> Path:
     return path
 
 
+def _news_id_from_json_path(path: Path) -> str:
+    name = path.stem
+    if name.endswith("_result"):
+        return name[: -len("_result")]
+    return name
+
+
 def _optional_vector(data: dict[str, Any], field: str) -> list[float] | None:
     vector = data.get(field)
     if vector is None:
         return None
-    if not isinstance(vector, list) or not all(isinstance(value, int | float) for value in vector):
-        raise ValueError(f"{field} must be a list of numbers")
+    if not isinstance(vector, list) or not vector:
+        raise ValueError(f"{field} must be a non-empty list of numbers")
+    if not all(isinstance(value, int | float) and not isinstance(value, bool) for value in vector):
+        raise ValueError(f"{field} must be a non-empty list of numbers")
     return [float(value) for value in vector]
+
+
+def _required_vector(
+    data: dict[str, Any],
+    field: str,
+    expected_dim: int | None = None,
+) -> list[float]:
+    vector = _optional_vector(data, field)
+    if vector is None:
+        raise ValueError(f"{field} is required")
+    if expected_dim is not None and len(vector) != expected_dim:
+        raise ValueError(f"{field} dimension mismatch: expected {expected_dim}, got {len(vector)}")
+    return vector
+
+
+def _record_ingest_error(stats: dict[str, Any], news_id: str, exc: Exception) -> None:
+    if news_id:
+        stats["failed_news_ids"].append(news_id)
+    stats["errors"].append(
+        {
+            "news_id": news_id,
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+    )

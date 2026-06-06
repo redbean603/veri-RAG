@@ -87,7 +87,13 @@ class LocalReranker:
             item["rank_stage"] = "vector_fallback"
             fallback.append(item)
 
-        fallback.sort(key=lambda item: item.get("score", 0.0), reverse=True)
+        fallback.sort(
+            key=lambda item: (
+                item.get("fusion_score", 0.0),
+                item.get("score", 0.0),
+            ),
+            reverse=True,
+        )
         return fallback[:top_k]
 
 

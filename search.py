@@ -4,7 +4,6 @@ from typing import Any
 import chromadb
 
 from config import CHROMA_HOST, CHROMA_PORT, IMAGE_COLLECTION, TEXT_COLLECTION
-from embeddings import get_text_embedding
 
 
 _chroma_client: chromadb.HttpClient | None = None
@@ -33,15 +32,15 @@ def get_image_collection():
 
 def vector_search(
     query: str,
+    query_vector: list[float] | None = None,
     top_k: int = 3,
     score_threshold: float | None = None,
     candidate_news_ids: list[str] | None = None,
-    query_vector: list[float] | None = None,
 ) -> list[dict[str, Any]]:
     if candidate_news_ids is not None and not candidate_news_ids:
         return []
 
-    query_embedding = _query_embedding(query=query, query_vector=query_vector)
+    query_embedding = _validate_vector(query_vector, "query_vector")
     query_kwargs: dict[str, Any] = {
         "query_embeddings": [query_embedding],
         "n_results": top_k,
@@ -66,9 +65,10 @@ def evidence_search(
 ) -> list[dict[str, Any]]:
     from hybrid_search import retrieve_and_rerank
 
+    query_embedding = _validate_vector(query_vector, "query_vector")
     return retrieve_and_rerank(
         query=query,
-        query_vector=query_vector,
+        query_vector=query_embedding,
         candidate_news_ids=candidate_news_ids,
         candidate_k=candidate_k,
         final_k=final_k,
@@ -95,28 +95,49 @@ def agent_evidence_search(
         "skipped_empty": 0,
         "skipped_image_vector": 0,
         "failed": 0,
+        "invalid": 0,
+        "excluded_from_search": 0,
     }
+    failed_news_ids: list[str] = []
+    ingest_errors: list[dict[str, str]] = []
+    query_embedding = _validate_vector(query_vector, "query_vector")
 
     if json_files:
         from ingest import ingest_text_json_files
 
-        ingest_stats = _merge_stats(
-            ingest_stats,
-            ingest_text_json_files(json_files, persist_json=persist_json),
+        file_ingest = ingest_text_json_files(
+            json_files,
+            persist_json=persist_json,
+            expected_vector_dim=len(query_embedding),
         )
+        ingest_stats = _merge_stats(ingest_stats, file_ingest)
+        failed_news_ids.extend(file_ingest.get("failed_news_ids", []))
+        ingest_errors.extend(file_ingest.get("errors", []))
 
     if json_records:
         from ingest import ingest_text_records
 
-        ingest_stats = _merge_stats(
-            ingest_stats,
-            ingest_text_records(json_records, persist_json=persist_json),
+        record_ingest = ingest_text_records(
+            json_records,
+            persist_json=persist_json,
+            expected_vector_dim=len(query_embedding),
         )
+        ingest_stats = _merge_stats(ingest_stats, record_ingest)
+        failed_news_ids.extend(record_ingest.get("failed_news_ids", []))
+        ingest_errors.extend(record_ingest.get("errors", []))
+
+    failed_id_set = {str(news_id) for news_id in failed_news_ids if str(news_id)}
+    search_candidate_news_ids = [
+        str(news_id)
+        for news_id in dict.fromkeys(candidate_news_ids)
+        if str(news_id) and str(news_id) not in failed_id_set
+    ]
+    ingest_stats["excluded_from_search"] = len(candidate_news_ids) - len(search_candidate_news_ids)
 
     results = evidence_search(
         query=query,
-        query_vector=query_vector,
-        candidate_news_ids=candidate_news_ids,
+        query_vector=query_embedding,
+        candidate_news_ids=search_candidate_news_ids,
         candidate_k=candidate_k,
         final_k=final_k,
         use_reranker=use_reranker,
@@ -127,6 +148,8 @@ def agent_evidence_search(
         "selected_news_ids": [result["news_id"] for result in formatted_results],
         "results": formatted_results,
         "ingest": ingest_stats,
+        "failed_news_ids": sorted(failed_id_set),
+        "ingest_errors": ingest_errors,
     }
 
 
@@ -162,14 +185,14 @@ def _format_results(
     return formatted
 
 
-def _query_embedding(query: str, query_vector: list[float] | None = None) -> list[float]:
-    if query_vector is None:
-        return get_text_embedding(query)
-    if not isinstance(query_vector, list) or not all(
-        isinstance(value, int | float) for value in query_vector
-    ):
-        raise ValueError("query_vector must be a list of numbers")
-    return [float(value) for value in query_vector]
+def _validate_vector(vector: list[float] | None, field: str) -> list[float]:
+    if vector is None:
+        raise ValueError(f"{field} is required")
+    if not isinstance(vector, list) or not vector:
+        raise ValueError(f"{field} must be a non-empty list of numbers")
+    if not all(isinstance(value, int | float) and not isinstance(value, bool) for value in vector):
+        raise ValueError(f"{field} must be a non-empty list of numbers")
+    return [float(value) for value in vector]
 
 
 def _agent_result(result: dict[str, Any]) -> dict[str, Any]:
@@ -192,5 +215,6 @@ def _agent_result(result: dict[str, Any]) -> dict[str, Any]:
 def _merge_stats(base: dict[str, int], update: dict[str, int]) -> dict[str, int]:
     merged = dict(base)
     for key, value in update.items():
-        merged[key] = merged.get(key, 0) + int(value)
+        if isinstance(value, int):
+            merged[key] = merged.get(key, 0) + value
     return merged
