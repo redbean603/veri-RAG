@@ -1,20 +1,30 @@
-# Environment Variables
+# Secrets and local credentials
 .env
+.env.*
+*.pem
+*.key
 
-# Python
+# Runtime logs and generated output
+output.txt
+*.log
+
+# Python cache and virtual environments
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 .venv/
-pip-log.txt
-pip-delete-this-directory.txt
+venv/
+env/
 
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# OS
+# OS and editor files
 .DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Large model/cache artifacts
+.cache/
+models/
+checkpoints/
