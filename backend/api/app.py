@@ -38,3 +38,10 @@ def retrieve(req: RetrieveRequest):
         "entities": req.entities,
         "news_ids": news_ids
     }
+
+# @app.post("/ingest")
+# async def ingest(req: UrlRequest):
+
+#     result = agent.ingest_url(req.url)
+
+#     return result

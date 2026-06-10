@@ -1,8 +1,16 @@
 from neo4j import GraphDatabase
 
-URI = "bolt://100.52.246.218:7687"
-USER = "neo4j"
-PASSWORD = "password123"
+from dotenv import load_dotenv
+
+import os
+
+load_dotenv()
+
+URI = os.getenv("NEO4J_URI")
+
+USER = os.getenv("NEO4J_USERNAME")
+
+PASSWORD = os.getenv("NEO4J_PASSWORD")
 
 driver = GraphDatabase.driver(
     URI,
