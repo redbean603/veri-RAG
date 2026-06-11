@@ -5,7 +5,7 @@
    through FastAPI's StaticFiles mount.
 ═══════════════════════════════════════════════ */
 
-const API_BASE       = "";        // e.g. "http://localhost:8000"
+const API_BASE       = "";
 const QUERY_ENDPOINT = "/query";  // POST { query } → { answer }
 
 /* ═══════════════════════════════════════════════

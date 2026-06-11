@@ -1,47 +1,43 @@
+from pathlib import Path
+
 from fastapi import FastAPI
-
-from backend.graph.workflow import run_news_pipeline
-
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-class RetrieveRequest(BaseModel):
-    entities: list[str]
+FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend" / "web"
 
-from backend.graph.retrieval.graph_retrieval import ( # pyright: ignore[reportMissingImports]
-    retrieve_news_ids
+app = FastAPI(title="Veri-RAG", version="0.1")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-app = FastAPI(
-    title="Veri-RAG",
-    version="0.1"
-)
+
+class QueryRequest(BaseModel):
+    query: str  # 뉴스 URL
+
+
+# 프론트엔드 정적 파일 서빙
+app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
+
+@app.get("/", include_in_schema=False)
+def root():
+    return FileResponse(FRONTEND_DIR / "index.html")
+
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
-@app.post("/build-graph")
-def build_graph():
 
-    result = run_news_pipeline()
-
-    return result
-
-@app.post("/retrieve")
-def retrieve(req: RetrieveRequest):
-
-    news_ids = retrieve_news_ids(
-        req.entities
-    )
-
+@app.post("/query")
+async def query(req: QueryRequest):
+    # TODO: 실제 agent 연결 전 에코 테스트
     return {
-        "entities": req.entities,
-        "news_ids": news_ids
+        "answer": f"[에코] 입력된 URL: {req.query}\n\nAgent 연결 전 테스트 응답입니다."
     }
-
-# @app.post("/ingest")
-# async def ingest(req: UrlRequest):
-
-#     result = agent.ingest_url(req.url)
-
-#     return result
