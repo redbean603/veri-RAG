@@ -1,30 +1,55 @@
-# Secrets and local credentials
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
 .env
 .env.*
-*.pem
-*.key
-
-# Runtime logs and generated output
-output.txt
 *.log
 
-# Python cache and virtual environments
-__pycache__/
-*.py[cod]
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.venv/
-venv/
-env/
+# Secrets / keys
+*.pem
+*.key
+*.crt
+.aws/
+credentials
 
-# OS and editor files
+# Local DB / vector DB / generated data
+chroma_db/
+neo4j_data/
+*.sqlite
+*.db
+*.duckdb
+
+# Data
+data/raw/
+data/processed/
+data/interim/
+data/cache/
+data/processed_news_backup/
+data/processed_news_batch/
+
+# Test files
+testset/
+testset_multimodal.zip
+run_multimodal_tests.py
+*.zip
+
+# Backups
+*.backup
+*.prev
+frontend.backup/
+
+# Visualization outputs
+*.html
+
+# IDE / OS
 .DS_Store
-Thumbs.db
-.idea/
 .vscode/
+.idea/
 
-# Large model/cache artifacts
-.cache/
-models/
-checkpoints/
+# Frontend
+node_modules/
+dist/
+build/
